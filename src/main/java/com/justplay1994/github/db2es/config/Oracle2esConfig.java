@@ -15,8 +15,8 @@ import org.springframework.stereotype.Component;
  * @Update_Date: 2018/9/19 19:34
  * @Update_Description: huangzezhou 补充
  **/
-//@Component
-//@ConfigurationProperties(prefix = "oracle2es")
+@Component
+@ConfigurationProperties(prefix = "oracle2es")
 //@PropertySource("classpath:config/oracle2es.properties")// 用来指定配置文件的位置
 public class Oracle2esConfig {
 
@@ -38,21 +38,45 @@ public class Oracle2esConfig {
     //需要跳过的表的列表，为空则不跳过。eg: dbName.tbName
     private String skipReadTB;
 
+    private String indexDB;/*索引使用的库名*/
+
     public String getOwner() {
         return owner;
     }
 
-    public void setOwner(String owner) {
-        this.owner = owner;
+    /*------ util -------------*/
+
+    public boolean isNull(String[] s){
+        if (s == null)return true;
+        if (s.length==1 && s[0]=="")return true;
+        return false;
     }
 
-    public String getTableSpace() {
-        return tableSpace;
+    /**
+     * 将字符串数组化，用逗号隔开
+     * @return
+     */
+    public String[] arrayJustReadDB(){
+        justReadDB = justReadDB.replaceAll(" ","");
+        return justReadDB.split(",");
     }
 
-    public void setTableSpace(String tableSpace) {
-        this.tableSpace = tableSpace;
+    public String[] arrayJustReadTB(){
+        justReadTB = justReadTB.replaceAll(" ","");
+        return justReadTB.split(",");
     }
+
+    public String[] arraySkipReadDB(){
+        skipReadDB = skipReadDB.replaceAll(" ","");
+        return skipReadDB.split(",");
+    }
+
+    public String[] arraySkipReadTB(){
+        skipReadTB = skipReadTB.replaceAll(" ","");
+        return skipReadTB.split(",");
+    }
+
+    /*-------- auto generator getter and setter ---------------*/
 
     public String getJustReadDB() {
         return justReadDB;
@@ -86,7 +110,23 @@ public class Oracle2esConfig {
         this.skipReadTB = skipReadTB;
     }
 
-    public String toString(){
-        return "Read oracle2es.properties success!";
+    public void setOwner(String owner) {
+        this.owner = owner;
+    }
+
+    public String getTableSpace() {
+        return tableSpace;
+    }
+
+    public void setTableSpace(String tableSpace) {
+        this.tableSpace = tableSpace;
+    }
+
+    public String getIndexDB() {
+        return indexDB;
+    }
+
+    public void setIndexDB(String indexDB) {
+        this.indexDB = indexDB;
     }
 }

@@ -1,5 +1,8 @@
 package com.justplay1994.github.db2es.service.db.operate;
 
+import java.io.IOException;
+import java.sql.SQLException;
+
 /**
  * @Package: com.justplay1994.github.db2es.service.db.operate
  * @Project: db2es
@@ -12,7 +15,7 @@ package com.justplay1994.github.db2es.service.db.operate;
  **/
 public interface DatabaseOperate {
 
-    public void queryAllStructure(); //获取所有表结构
+    public void queryAllStructure() throws SQLException; //获取所有表结构
     public void queryAllData(); //一次获取所有数据
     public void queryAllDataByPage(); //分页查询
     public void config(); //数据库配置

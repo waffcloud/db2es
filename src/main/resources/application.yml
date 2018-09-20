@@ -1,3 +1,18 @@
+
+# 由于oracle受限情况下，不能使用all_tables查询tablespace，所以查询不到tablespace，只能讲tablespace用owner替代了
+oracle2es.owner: ZHFTYJJCPT
+oracle2es.tableSpace:
+#只读的数据库列表，为空则读全库.eg: dbName
+oracle2es.justReadDB:
+#只读的表的列表，为空则读所有表。eg: dbName.tbName
+oracle2es.justReadTB: ZHFTYJJCPT.TB_ROAD_DISEASE,ZHFTYJJCPT.HEDAO_001
+#需要跳过的库的列表，为空则不跳过。eg: dbName
+oracle2es.skipReadDB:
+#需要跳过的表的列表，为空则不跳过。eg: dbName.tbName
+oracle2es.skipReadTB:
+#指定固定的索引名中的库名部分。注意！索引名为（数据库名+表名+主键），如果统一库名，可能存在表冲突的情况。
+oracle2es.indexDB:
+
 server:
   port: 8080
 logging:
@@ -32,7 +47,7 @@ spring:
     type: com.zaxxer.hikari.HikariDataSource
     driverClassName: oracle.jdbc.driver.OracleDriver
    # url: jdbc:oracle:thin:@${myProps.PrimaryDatasourceIp}:1521/coreora    #区委
-    url: jdbc:oracle:thin:@10.192.19.104:1521/orclcetc   #王延凯
+    jdbc-url: jdbc:oracle:thin:@10.192.19.104:1521/orclcetc   #王延凯
   #  url: jdbc:oracle:thin:@10.192.19.107:1521/coreora   # 林海全本地测试库
   #  url: jdbc:oracle:thin:@${myProps.PrimaryDatasourceIp}:1521/orcl   #北京
     username: ZHFTYJJCPT
@@ -130,9 +145,3 @@ spring.primary-datasource.time-between-eviction-runs-millis: 3000
 #    org.hibernate: DEBUG
 ## path: D://output/Intellij/11-Gaojiaohui/logs
 #  file: logs/test.log
-
-# 自定义常量
-myProps.RealTimeURLTbWeijiInInfo: http://www.baidu.com1
-myProps.RealTimeURLTbWeijOutInfo: http://www.baidu.com2
-myProps.RealTimeURLTbWeijiOutVistitsDay: http://www.baidu.com3
-myProps.RealTimeURLTbWeijiSdmInfo: http://www.baidu.com4
