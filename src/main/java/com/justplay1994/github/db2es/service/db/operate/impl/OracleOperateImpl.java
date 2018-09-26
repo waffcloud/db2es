@@ -15,6 +15,8 @@ import javax.sql.DataSource;
 import java.io.*;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 
 
@@ -187,12 +189,70 @@ public class OracleOperateImpl implements OracleOperate{
 
     @Override
     public void queryAllData() {
+        try {
 
+        /*连接Mysql相关变量*/
+            Connection con = null;
+            ResultSet rs = null;
+            Statement st = null;
+
+            String sql = "select * from ";
+            if (DatabaseNodeListInfo.databaseNodeList == null || DatabaseNodeListInfo.databaseNodeList.size() <= 0) {
+                logger.error("database structure is null!");
+                return;
+            }
+
+            Iterator<DatabaseNode> databaseNodeIt = DatabaseNodeListInfo.databaseNodeList.iterator();
+            while (databaseNodeIt.hasNext()) {
+                DatabaseNodeListInfo.dbNumber++;
+                DatabaseNode databaseNode = databaseNodeIt.next();
+                /*获取数据库连接*/
+                con = dataSource.getConnection();
+                Iterator<TableNode> tableNodeIterator = databaseNode.getTableNodeList().iterator();
+                while (tableNodeIterator.hasNext()) {
+                    DatabaseNodeListInfo.tbNumber++;
+                    TableNode tableNode = tableNodeIterator.next();
+                    /*sql查询该表所有数据*/
+                    st = con.createStatement();
+                    String sql1 = "select ";
+                    for (int i = 0; i < tableNode.getColumns().size(); ++i) {
+                        sql1 += " \"" + tableNode.getColumns().get(i) + "\",";
+                    }
+                    sql1 = sql1.substring(0, sql1.length() - 1);/*去掉最后一个逗号*/
+                    sql1 += " from \"" + oracle2esConfig.getOwner() + "\".\"" + tableNode.getTableName() + "\"";
+                    logger.debug("[sql: " + sql1 + "]");
+                    rs = st.executeQuery(sql1);
+                    while (rs.next()) {
+                    /*所有数据+1*/
+                        DatabaseNodeListInfo.rowNumber++;
+                    /*该库数据+1*/
+                        databaseNode.setRowNumber(databaseNode.getRowNumber() + 1);
+                        ArrayList<String> row = new ArrayList<String>();
+                        List cols = tableNode.getColumns();
+                        for (int i = 0; i < cols.size(); ++i) {
+                            row.add(rs.getString(cols.get(i).toString()));
+                        }
+                        tableNode.getRows().add(row);
+                    }
+                }
+            }
+        /* 这里有多次连接，需要每次创建新的之前，都close之前的，还是只需在最后close即可*/
+            rs.close();
+            st.close();
+            con.close();
+        } catch (SQLException e) {
+            logger.error("Query oracle error!\n", e);
+        }
     }
 
     @Override
     public void queryAllDataByPage() {
-
+        //从数据库获取数据，插入队列中，需要控制队列大小
+        try {
+            Connection connection = dataSource.getConnection();
+        } catch (SQLException e) {
+            logger.error("query oracle ",e);
+        }
     }
 
     @Override

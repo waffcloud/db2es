@@ -14,7 +14,7 @@ public interface Db2es {
 
     public void transfer();//数据同步
 
-    public void dictionary();//生成数据字典
-
-    public void count(); //统计数据数量
+//    public void dictionary();//生成数据字典
+//
+//    public void count(); //统计数据数量
 }

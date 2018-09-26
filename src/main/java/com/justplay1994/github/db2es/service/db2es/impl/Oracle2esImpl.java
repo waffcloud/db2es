@@ -28,7 +28,7 @@ import java.sql.SQLException;
  **/
 
 @Service
-public class Db2esImpl extends Oracle2es {
+public class Oracle2esImpl implements Oracle2es {
 
     private Logger logger = LoggerFactory.getLogger(getClass());
 

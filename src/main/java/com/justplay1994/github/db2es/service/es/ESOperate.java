@@ -13,6 +13,6 @@ package com.justplay1994.github.db2es.service.es;
 public interface ESOperate {
     public void createMapping(); //创建映射
     public void bulk(); //批量导入数据
-    public void deleteAll(); //删除所有索引
+    public void deleteAllConflict(); //删除已存在的同名索引，建议与navicat导入数据策略一致，先删再导
     public void config();//搜索引擎配置
 }
