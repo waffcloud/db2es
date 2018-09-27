@@ -1,7 +1,32 @@
+########################################
+#
+#         db2es相关配置（全局配置）
+#
+#########################################
+db2es.latColumn: WD84
+db2es.lonColumn: JD84
+
 db2es.esUrl: http://10.192.19.161:9200/
 db2es.maxThreadCount: 8
 db2es.indexType: _doc
-db2es.indexDB:
+db2es.indexDB: 31project
+#每张表的数据缓存队列大小,建议1W，粗略估计1W行生成esBulk为5M
+db2es.rowQueueSize: 10000
+#每张表的数据缓存队列大小,建议100
+db2es.esBulkQueueSize: 100
+#每次请求es的大小，单位M
+db2es.esBulkSize: 5
+#页大小，每次请求数据库的行数,建议1W，粗略估计1W行生成esBulk为5M
+db2es.pageSize: 10000
+#入队，出队阻塞等待时间，单位ms
+db2es.queueWaitTime: 3000
+
+
+########################################
+#
+#         oracle2es相关配置
+#
+#########################################
 
 # 由于oracle受限情况下，不能使用all_tables查询tablespace，所以查询不到tablespace，只能讲tablespace用owner替代了
 oracle2es.owner: ZHFTYJJCPT
@@ -21,7 +46,7 @@ server:
   port: 8080
 logging:
   level:
-  root: ERROR
+    root: INFO
 spring:
   profiles:
     active: dev
@@ -137,14 +162,9 @@ spring.primary-datasource.test-on-borrow: true
 spring.primary-datasource.min-evictable-idle-time-millis: 6000
 spring.primary-datasource.time-between-eviction-runs-millis: 3000
 
-
-
-
-
-#
 #logging:
 #  level:
-#    root: DEBUG
+#    root: INFO
 #    org.springframework.web: DEBUG
 #    org.hibernate: DEBUG
 ## path: D://output/Intellij/11-Gaojiaohui/logs

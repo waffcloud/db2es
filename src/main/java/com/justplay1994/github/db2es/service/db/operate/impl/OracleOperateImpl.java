@@ -1,5 +1,6 @@
 package com.justplay1994.github.db2es.service.db.operate.impl;
 
+import com.justplay1994.github.db2es.config.Db2esConfig;
 import com.justplay1994.github.db2es.config.Oracle2esConfig;
 import com.justplay1994.github.db2es.service.db.current.DatabaseNode;
 import com.justplay1994.github.db2es.service.db.current.DatabaseNodeListInfo;
@@ -18,12 +19,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 
 /**
  * @Package: com.justplay1994.github.db2es.service.db.operate.impl
  * @Project: db2es
- * @Description:   //TODO
+ * @Description: //TODO
  * @Creator: huangzezhou
  * @Create_Date: 2018/9/19 17:33
  * @Updater: huangzezhou
@@ -31,7 +33,7 @@ import java.util.List;
  * @Update_Description: huangzezhou 补充
  **/
 @Service
-public class OracleOperateImpl implements OracleOperate{
+public class OracleOperateImpl implements OracleOperate {
 
     private static final Logger logger = LoggerFactory.getLogger(OracleOperateImpl.class);
 
@@ -41,222 +43,202 @@ public class OracleOperateImpl implements OracleOperate{
     @Autowired
     Oracle2esConfig oracle2esConfig;
 
-    @Override
-    public void queryAllStructure() throws SQLException {
-
-        /*查询所有库、表、字段*/
-        /*mysql*/
-        Connection con = dataSource.getConnection();
-        logger.info("Connect oracle Successfull.");
-        Statement st = con.createStatement();
-        /*获取库名、表名*/
-//        String sql = "SELECT TABLE_NAME, TABLESPACE_NAME FROM all_tables WHERE OWNER='"+user.toUpperCase()+"'";/*在受限的oracle数据库中，all_tables表不能用*/
-        String sql = "SELECT DISTINCT TABLE_NAME, OWNER FROM all_tab_columns WHERE OWNER='" + oracle2esConfig.getOwner().toUpperCase() + "'";
-        logger.debug("[sql: " + sql + " ]");
-        ResultSet rs = st.executeQuery(sql);
-
-        /*获取所有库、表、列名开始*/
-        DatabaseNodeListInfo.databaseNodeList = new ArrayList<DatabaseNode>();
-        List<DatabaseNode> dbList = DatabaseNodeListInfo.databaseNodeList;
-
-        DatabaseNode lastDB = null;
-        TableNode lastTable = null;
-
-
-        while (rs.next()) {
-            String tbStr = rs.getString("TABLE_NAME");
-            String dbStr = rs.getString("OWNER");
-
-            logger.debug("[dbName= " + dbStr + ", tbName= " + tbStr);
-            boolean skip = false;
-            /*判断该库是否是必须读取*/
-            if (!oracle2esConfig.isNull(oracle2esConfig.arrayJustReadDB())) {
-                skip = true;
-                for (int i = 0; i < oracle2esConfig.arrayJustReadDB().length; ++i) {
-                    if (dbStr.equals(oracle2esConfig.arrayJustReadDB()[i])) {
-                        skip = false;
-                        break;
-                    }
-                }
-            }
-            /*判断该表是否是必须读取*/
-            if (!oracle2esConfig.isNull(oracle2esConfig.arrayJustReadTB())) {
-                skip = true;
-                for (int i = 0; i < oracle2esConfig.arrayJustReadTB().length; ++i) {
-                    /*dbName.tbName*/
-                    if (dbStr.equals(oracle2esConfig.arrayJustReadTB()[i].split("\\.")[0]) && tbStr.equals(oracle2esConfig.arrayJustReadTB()[i].split("\\.")[1])) {
-                        skip = false;
-                        break;
-                    }
-                }
-            }
-            /*判断该库是否需要跳过*/
-            if (!oracle2esConfig.isNull(oracle2esConfig.arraySkipReadDB())) {
-                for (int i = 0; i < oracle2esConfig.arraySkipReadDB().length; ++i) {
-                    if (dbStr.equals(oracle2esConfig.arraySkipReadDB()[i])) {
-                        skip = true;
-                        break;
-                    }
-                }
-            }
-            /*判断该表是否需要跳过*/
-            if (!oracle2esConfig.isNull(oracle2esConfig.arraySkipReadTB())) {
-                for (int i = 0; i < oracle2esConfig.arraySkipReadTB().length; ++i) {
-                     /*dbName.tbName*/
-                    if (dbStr.equals(oracle2esConfig.arraySkipReadTB()[i].split("\\.")[0]) && tbStr.equals(oracle2esConfig.arraySkipReadTB()[i].split("\\.")[1])) {
-                        skip = true;
-                        break;
-                    }
-                }
-            }
-
-            if (skip) continue;
-
-            /*判断该库是否存在*/
-            if (dbList.size() != 0 && dbStr.equalsIgnoreCase(dbList.get(dbList.size() - 1).getDbName())) {
-                List<TableNode> tbList = new ArrayList<TableNode>();
-                TableNode tableNode = new TableNode(tbStr);
-                dbList.get(dbList.size() - 1).getTableNodeList().add(tableNode);
-            } else {/*不存在则新建一个库节点，并且新建表节点*/
-                List<TableNode> tbList = new ArrayList<TableNode>();
-                TableNode tableNode = new TableNode(tbStr);
-                tbList.add(tableNode);
-                DatabaseNode dbNode = new DatabaseNode(dbStr, tbList);
-                dbList.add(dbNode);
-            }
-        }
-
-        /*获取表名、字段名*/
-        /*只能假设，同一个owner（用户）下没有重名的表了，这里有风险*/
-        String sql1 = "SELECT TABLE_NAME,COLUMN_NAME,DATA_TYPE from all_tab_columns WHERE OWNER='" + oracle2esConfig.getOwner().toUpperCase() + "'";
-        logger.debug("[sql: " + sql1 + " ]");
-        rs = st.executeQuery(sql1);
-
-
-        while (rs.next()) {
-            String colStr = rs.getString("COLUMN_NAME");
-            String tbStr = rs.getString("TABLE_NAME");
-            String dataType = rs.getString("DATA_TYPE");
-            logger.debug("[tbName=" + tbStr + ",colName=" + colStr + ",dataType=" + dataType + "]");
-            for (int i = 0; i < dbList.size(); ++i) {
-                List<TableNode> tbList = dbList.get(i).getTableNodeList();
-                for (int j = 0; j < tbList.size(); ++j) {
-                    if (tbList.get(j).getTableName().equalsIgnoreCase(tbStr)) {
-                        TableNode tb = tbList.get(j);
-                        tb.getColumns().add(colStr);
-                        tb.getDataType().add(dataType);
-                        tb.getCloumnComment().add("无");/*预先插入空值*/
-                    }
-                }
-            }
-        }
-
-        /*获取comment备注*/
-        String sql3 = "SELECT TABLE_NAME,COLUMN_NAME,COMMENTS from all_col_comments WHERE OWNER='" + oracle2esConfig.getOwner().toUpperCase() + "'";
-        logger.debug("[sql: " + sql3 + "]");
-        rs = st.executeQuery(sql3);
-        while (rs.next()) {
-            String colStr = rs.getString("COLUMN_NAME");
-            String tbStr = rs.getString("TABLE_NAME");
-            String colComment = rs.getString("COMMENTS");
-            logger.debug("[tbName=" + tbStr + ",colStr=" + colStr + ",colComment=" + colComment + "]");
-            for (int i = 0; i < dbList.size(); ++i) {
-                String dbStr = null;
-                /*数据字典输出的db字符串*/
-                if (oracle2esConfig.getIndexDB() != "")
-                    dbStr = dbList.get(i).getDbName();
-                else
-                    dbStr = oracle2esConfig.getIndexDB();
-                List<TableNode> tbList = dbList.get(i).getTableNodeList();
-                for (int j = 0; j < tbList.size(); ++j) {
-                    if (tbList.get(j).getTableName().equalsIgnoreCase(tbStr)) {/*匹配上表名*/
-                        List<String> cList = tbList.get(j).getColumns();
-                        for (int k = 0; k < cList.size(); ++k) {
-                            if (cList.get(k).equalsIgnoreCase(colStr)) {/*该表中匹配上字段就行了*/
-                                tbList.get(j).getCloumnComment().add(k, colComment);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        /*获取所有库、表、列名结束*/
-        rs.close();
-        st.close();
-        con.close();
-    }
+    @Autowired
+    Db2esConfig db2esConfig;
 
     @Override
-    public void queryAllData() {
+    public void queryAllStructure() {
+        Connection con=null;
+        Statement st=null;
+        ResultSet rs=null;
         try {
+            /*创建缓存数据结构*/
+            DatabaseNodeListInfo.databaseNodeList = new ArrayList<DatabaseNode>();
+            /*查询所有库、表、字段*/
+            con = dataSource.getConnection();
+            logger.info("Connect oracle success.");
+            st = con.createStatement();
+            /*获取库名、表名*/
+            String sql = "SELECT DISTINCT TABLE_NAME, OWNER FROM all_tab_columns WHERE OWNER='" + oracle2esConfig.getOwner().toUpperCase() + "'";
+            logger.debug("[sql: " + sql + " ]");
+            rs = st.executeQuery(sql);
 
-        /*连接Mysql相关变量*/
-            Connection con = null;
-            ResultSet rs = null;
-            Statement st = null;
+            /*获取所有库、表、列名开始*/
+            List<DatabaseNode> dbList = DatabaseNodeListInfo.databaseNodeList;
 
-            String sql = "select * from ";
-            if (DatabaseNodeListInfo.databaseNodeList == null || DatabaseNodeListInfo.databaseNodeList.size() <= 0) {
-                logger.error("database structure is null!");
-                return;
+            while (rs.next()) {
+                String tbStr = rs.getString("TABLE_NAME");
+                String dbStr = rs.getString("OWNER");
+
+
+                boolean skip = false;
+                /*判断该库是否是必须读取*/
+                if (!oracle2esConfig.isNull(oracle2esConfig.arrayJustReadDB())) {
+                    skip = true;
+                    for (int i = 0; i < oracle2esConfig.arrayJustReadDB().length; ++i) {
+                        if (dbStr.equals(oracle2esConfig.arrayJustReadDB()[i])) {
+                            skip = false;
+                            break;
+                        }
+                    }
+                }
+            /*判断该表是否是必须读取*/
+                if (!oracle2esConfig.isNull(oracle2esConfig.arrayJustReadTB())) {
+                    skip = true;
+                    for (int i = 0; i < oracle2esConfig.arrayJustReadTB().length; ++i) {
+                    /*dbName.tbName*/
+                        if (dbStr.equals(oracle2esConfig.arrayJustReadTB()[i].split("\\.")[0]) && tbStr.equals(oracle2esConfig.arrayJustReadTB()[i].split("\\.")[1])) {
+                            skip = false;
+                            break;
+                        }
+                    }
+                }
+            /*判断该库是否需要跳过*/
+                if (!oracle2esConfig.isNull(oracle2esConfig.arraySkipReadDB())) {
+                    for (int i = 0; i < oracle2esConfig.arraySkipReadDB().length; ++i) {
+                        if (dbStr.equals(oracle2esConfig.arraySkipReadDB()[i])) {
+                            skip = true;
+                            break;
+                        }
+                    }
+                }
+            /*判断该表是否需要跳过*/
+                if (!oracle2esConfig.isNull(oracle2esConfig.arraySkipReadTB())) {
+                    for (int i = 0; i < oracle2esConfig.arraySkipReadTB().length; ++i) {
+                     /*dbName.tbName*/
+                        if (dbStr.equals(oracle2esConfig.arraySkipReadTB()[i].split("\\.")[0]) && tbStr.equals(oracle2esConfig.arraySkipReadTB()[i].split("\\.")[1])) {
+                            skip = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (skip) continue;
+                logger.debug("[dbName= " + dbStr + ", tbName= " + tbStr+"]");
+                /*判断该库是否存在*/
+                if (dbList.size() != 0 && dbStr.equalsIgnoreCase(dbList.get(dbList.size() - 1).getDbName())) {
+                    List<TableNode> tbList = new ArrayList<TableNode>();
+                    TableNode tableNode = new TableNode(tbStr);
+                    dbList.get(dbList.size() - 1).getTableNodeList().add(tableNode);
+                } else {/*不存在则新建一个库节点，并且新建表节点*/
+                    List<TableNode> tbList = new ArrayList<TableNode>();
+                    TableNode tableNode = new TableNode(tbStr);
+                    tbList.add(tableNode);
+                    DatabaseNode dbNode = new DatabaseNode(dbStr, tbList);
+                    dbList.add(dbNode);
+                }
             }
 
-            Iterator<DatabaseNode> databaseNodeIt = DatabaseNodeListInfo.databaseNodeList.iterator();
-            while (databaseNodeIt.hasNext()) {
-                DatabaseNodeListInfo.dbNumber++;
-                DatabaseNode databaseNode = databaseNodeIt.next();
-                /*获取数据库连接*/
-                con = dataSource.getConnection();
-                Iterator<TableNode> tableNodeIterator = databaseNode.getTableNodeList().iterator();
-                while (tableNodeIterator.hasNext()) {
-                    DatabaseNodeListInfo.tbNumber++;
-                    TableNode tableNode = tableNodeIterator.next();
-                    /*sql查询该表所有数据*/
-                    st = con.createStatement();
-                    String sql1 = "select ";
-                    for (int i = 0; i < tableNode.getColumns().size(); ++i) {
-                        sql1 += " \"" + tableNode.getColumns().get(i) + "\",";
-                    }
-                    sql1 = sql1.substring(0, sql1.length() - 1);/*去掉最后一个逗号*/
-                    sql1 += " from \"" + oracle2esConfig.getOwner() + "\".\"" + tableNode.getTableName() + "\"";
-                    logger.debug("[sql: " + sql1 + "]");
-                    rs = st.executeQuery(sql1);
-                    while (rs.next()) {
-                    /*所有数据+1*/
-                        DatabaseNodeListInfo.rowNumber++;
-                    /*该库数据+1*/
-                        databaseNode.setRowNumber(databaseNode.getRowNumber() + 1);
-                        ArrayList<String> row = new ArrayList<String>();
-                        List cols = tableNode.getColumns();
-                        for (int i = 0; i < cols.size(); ++i) {
-                            row.add(rs.getString(cols.get(i).toString()));
+            /*获取表名、字段名\字段类型*/
+            /*TODO 只能假设，同一个owner（用户）下没有重名的表了，这里有风险*/
+            String sql1 = "SELECT TABLE_NAME,COLUMN_NAME,DATA_TYPE from all_tab_columns WHERE OWNER='" + oracle2esConfig.getOwner().toUpperCase() + "'";
+            logger.debug("[sql: " + sql1 + " ]");
+            rs = st.executeQuery(sql1);
+
+
+            while (rs.next()) {
+                String colStr = rs.getString("COLUMN_NAME");
+                String tbStr = rs.getString("TABLE_NAME");
+                String dataType = rs.getString("DATA_TYPE");
+                for (int i = 0; i < dbList.size(); ++i) {
+                    List<TableNode> tbList = dbList.get(i).getTableNodeList();
+                    for (int j = 0; j < tbList.size(); ++j) {
+                        if (tbList.get(j).getTableName().equalsIgnoreCase(tbStr)) {
+                            logger.debug("[tbName=" + tbStr + ",colName=" + colStr + ",dataType=" + dataType + "]");
+                            TableNode tb = tbList.get(j);
+                            tb.getColumns().add(colStr);
+                            tb.getDataType().add(dataType);
                         }
-                        tableNode.getRows().add(row);
                     }
                 }
             }
-        /* 这里有多次连接，需要每次创建新的之前，都close之前的，还是只需在最后close即可*/
-            rs.close();
-            st.close();
-            con.close();
+
         } catch (SQLException e) {
             logger.error("Query oracle error!\n", e);
+        } finally {
+            /*获取所有库、表、列名结束*/
+            close(con, st, rs);
         }
     }
 
+    /**
+     * 1.调度器，遍历所有表名
+     * 2.调度器，控制分页参数
+     * 3.多线程，分页查询每张表的数据
+     */
     @Override
     public void queryAllDataByPage() {
-        //从数据库获取数据，插入队列中，需要控制队列大小
-        try {
-            Connection connection = dataSource.getConnection();
+        Connection con=null;
+        Statement st=null;
+        ResultSet rs=null;
+        String queryByPage="";
+        try {//一旦请求数据库异常，则停止与该数据库交互
+            con = dataSource.getConnection();
+            st = con.createStatement();
+            List<DatabaseNode> databaseNodeList = DatabaseNodeListInfo.databaseNodeList;
+            for (DatabaseNode databaseNode : databaseNodeList) {
+                DatabaseNodeListInfo.dbNumber++;
+                for (TableNode tableNode : databaseNode.getTableNodeList()) {
+                    DatabaseNodeListInfo.tbNumber++;
+                    //获取该表的行数
+                    String queryRowNumber = "SELECT COUNT(*) FROM " + tableNode.getTableName();
+                    rs = st.executeQuery(queryRowNumber);
+                    if (rs.next()) {
+                        tableNode.setRowNumber(rs.getInt(1));
+                    }
+                    /*总共数据量统计：所有数据量+该表数据量*/
+                    DatabaseNodeListInfo.rowNumber += tableNode.getRowNumber();
+                    /*该库数据量统计：该库所有数据量+该表数据量*/
+                    databaseNode.setRowNumber(databaseNode.getRowNumber() + tableNode.getRowNumber());
+                    if (tableNode.getRowNumber() > 0) {
+                        int startPosition = 1;
+                        int endPosition;
+                        while (true){
+                            if (startPosition > tableNode.getRowNumber())break;
+                            endPosition = startPosition + db2esConfig.getPageSize();
+                            //oracle 分页查询语句
+                            queryByPage = "SELECT * FROM(SELECT ROWID ROW_ID, ROWNUM ROW_NUM, T.*  FROM " + tableNode.getTableName() + " T) TM WHERE ROW_NUM >= " + startPosition + " AND ROW_NUM < " + endPosition;
+                            rs = st.executeQuery(queryByPage);
+                            while (rs.next()) {
+                                ArrayList<String> row = new ArrayList<String>();
+                                List cols = tableNode.getColumns();
+                                for (int i = 0; i < cols.size(); ++i) {
+                                    row.add(rs.getString(cols.get(i).toString()));
+                                }
+                                boolean insertRowSuccess = tableNode.getRows().offer(row, db2esConfig.getQueueWaitTime(), TimeUnit.MILLISECONDS);
+                                if (!insertRowSuccess){
+                                    logger.error("Offer row queue error!\n");
+                                }
+                            }
+                            startPosition = endPosition;
+                        }
+                    }
+                    /*完成一张表的查询，更改该表的数据查询完成标识符*/
+                    tableNode.setQueryDataFinished(true);
+                }
+            }
         } catch (SQLException e) {
-            logger.error("query oracle ",e);
+            logger.error("sql error: "+queryByPage+"\n",e);
+        } catch (InterruptedException e) {
+            logger.error("Offer block queue error!\n", e);
+        } finally {
+            close(con, st, rs);
         }
     }
 
-    @Override
-    public void config() {
-
+    public void close(Connection con, Statement st, ResultSet rs){
+        try {
+            if (rs != null) {
+                rs.close();
+            }
+            if (st != null) {
+                st.close();
+            }
+            if (con != null) {
+                con.close();
+            }
+        }catch (SQLException e){
+            logger.error("Oracle Connection/Statement/ResultSet close error!\n",e);
+        }
     }
 }

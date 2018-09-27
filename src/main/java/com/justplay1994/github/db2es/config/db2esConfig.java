@@ -1,16 +1,4 @@
 package com.justplay1994.github.db2es.config;
-/**********************************************************************
- * Copyright (c) 2018 CETC Company
- * 中电科新型智慧城市研究院有限公司版权所有
- * <p>
- * PROPRIETARY RIGHTS of CETC Company are involved in the
- * subject matter of this material. All manufacturing, reproduction, use,
- * and sales rights pertaining to this subject matter are governed by the
- * license agreement. The recipient of this software implicitly accepts
- * the terms of the license.
- * 本软件文档资料是中电科新型智慧城市研究院有限公司的资产，任何人士阅读和
- * 使用本资料必须获得相应的书面授权，承担保密责任和接受相应的法律约束。
- *************************************************************************/
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
@@ -29,6 +17,10 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "db2es")
 public class Db2esConfig {
 
+    private String latColumn;
+
+    private String lonColumn;
+
     private String esUrl;
 
     private int maxThreadCount;
@@ -36,6 +28,72 @@ public class Db2esConfig {
     private String indexType;
 
     private String indexDB;
+
+    private int rowQueueSize;
+
+    private int esBulkQueueSize;
+
+    private int esBulkSize;
+
+    private int pageSize;
+
+    private long queueWaitTime;
+
+    public String getLatColumn() {
+        return latColumn;
+    }
+
+    public void setLatColumn(String latColumn) {
+        this.latColumn = latColumn;
+    }
+
+    public String getLonColumn() {
+        return lonColumn;
+    }
+
+    public void setLonColumn(String lonColumn) {
+        this.lonColumn = lonColumn;
+    }
+
+    public int getEsBulkQueueSize() {
+        return esBulkQueueSize;
+    }
+
+    public void setEsBulkQueueSize(int esBulkQueueSize) {
+        this.esBulkQueueSize = esBulkQueueSize;
+    }
+
+    public long getQueueWaitTime() {
+        return queueWaitTime;
+    }
+
+    public void setQueueWaitTime(long queueWaitTime) {
+        this.queueWaitTime = queueWaitTime;
+    }
+
+    public int getPageSize() {
+        return pageSize;
+    }
+
+    public void setPageSize(int pageSize) {
+        this.pageSize = pageSize;
+    }
+
+    public int getRowQueueSize() {
+        return rowQueueSize;
+    }
+
+    public void setRowQueueSize(int rowQueueSize) {
+        this.rowQueueSize = rowQueueSize;
+    }
+
+    public int getEsBulkSize() {
+        return esBulkSize;
+    }
+
+    public void setEsBulkSize(int esBulkSize) {
+        this.esBulkSize = esBulkSize;
+    }
 
     public String getIndexType() {
         return indexType;

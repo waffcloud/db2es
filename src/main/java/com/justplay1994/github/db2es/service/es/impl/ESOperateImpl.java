@@ -21,14 +21,16 @@ import java.net.ProtocolException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
  * @Package: com.justplay1994.github.db2es.service.es.impl
  * @Project: db2es
- * @Description:   //TODO
+ * @Description: //TODO
  * @Creator: huangzezhou
  * @Create_Date: 2018/9/19 17:41
  * @Updater: huangzezhou
@@ -48,6 +50,46 @@ public class ESOperateImpl implements ESOperate {
 
     @Override
     public void createMapping() {
+        /**
+         * 创建mapping的线程实例
+         */
+        class MappingThread implements Runnable {
+
+            String ESUrl = db2esConfig.getEsUrl();
+
+            String indexName;
+            String mapping;
+
+            public MappingThread(String indexName, String mapping) {
+                this.indexName = indexName;
+                this.mapping = mapping;
+            }
+
+            public void createMapping() {
+                logger.info("creating mapping...");
+
+        /*创建索引映射*/
+
+                try {
+                    new MyURLConnection().request(ESUrl + indexName, "PUT", mapping);
+                    logger.info("mapping finished! indexName: " + indexName);
+                } catch (MalformedURLException e) {
+                    logger.error("【MappingError】", e);
+                    logger.error("url: " + ESUrl + indexName + "\n " + mapping);
+                } catch (ProtocolException e) {
+                    logger.error("【MappingError】", e);
+                    logger.error("url: " + ESUrl + indexName + "\n " + mapping);
+                } catch (IOException e) {
+                    logger.error("【MappingError】", e);
+                    logger.error("url: " + ESUrl + indexName + "\n " + mapping);
+                }
+            }
+
+            public void run() {
+                createMapping();
+            }
+        }
+
         logger.info("begin create es mapping...");
         ThreadPoolExecutor executor = new ThreadPoolExecutor(
                 0,
@@ -72,35 +114,37 @@ public class ESOperateImpl implements ESOperate {
                 	    "search_analyzer": "ik_max_word"}
                     * */
                 HashMap properties = new HashMap();
-                    /*地理信息字段*/
+                /*地理信息字段*/
                 HashMap geo = new HashMap();
-                geo.put("type","geo_point");
-                properties.put("location",geo);
-                    /*分词字段*/
+                geo.put("type", "geo_point");
+                properties.put("location", geo);
+                /*分词字段*/
                 HashMap textAnalyzer = new HashMap();
-                textAnalyzer.put("type","text");
-                textAnalyzer.put("analyzer","ik_max_word");
-                textAnalyzer.put("search_analyzer","ik_max_word");
-                    /*时间字段*/
+                textAnalyzer.put("type", "text");
+                textAnalyzer.put("analyzer", "ik_max_word");
+                textAnalyzer.put("search_analyzer", "ik_max_word");
+                /*时间字段*/
                 HashMap dateTime = new HashMap();
-                dateTime.put("type","date");
-                dateTime.put("format","yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis");
-                    /*普通字符串字段，避免被自动识别为其他类型*/
+                dateTime.put("type", "date");
+                dateTime.put("format", "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis");
+                /*普通字符串字段，避免被自动识别为其他类型*/
                 HashMap textType = new HashMap();
-                textType.put("type","text");
+                textType.put("type", "text");
 
-                for(int i = 0; i < tableNode.getColumns().size(); ++i){
+                for (int i = 0; i < tableNode.getColumns().size(); ++i) {
                     if (tableNode.getDataType().get(i).equalsIgnoreCase("NVARCHAR2")) {
-                        properties.put(tableNode.getColumns().get(i).toLowerCase(), textAnalyzer);
-                    }else {
-                        properties.put(tableNode.getColumns().get(i).toLowerCase(), textType);
+                        properties.put(tableNode.getColumns().get(i), textAnalyzer);
+                    } else if (tableNode.getDataType().get(i).equalsIgnoreCase("DATE")) {
+                        properties.put(tableNode.getColumns().get(i), dateTime);
+                    } else {
+                        properties.put(tableNode.getColumns().get(i), textType);
                     }
                 }
                 try {
                     String mapping =
                             " {\n" +
                                     "    \"mappings\": {\n" +
-                                    "        \""+db2esConfig.getIndexType()+"\": {\n" +
+                                    "        \"" + db2esConfig.getIndexType() + "\": {\n" +
                                     "            \"properties\": \n" +
                                     objectMapper.writeValueAsString(properties) +
                                     "            \n" +
@@ -109,29 +153,29 @@ public class ESOperateImpl implements ESOperate {
                                     "}";
 
                     String indexName = indexName(databaseNode.getDbName(), tableNode.getTableName());
-                    executor.execute(new Thread(new MappingThread(indexName,mapping)));
+                    executor.execute(new Thread(new MappingThread(indexName, mapping)));
                         /*如果当前线程数达到最大值，则阻塞等待*/
-                    while(executor.getQueue().size()>=executor.getMaximumPoolSize()){
-                        logger.debug("Thread waite ...Already maxThread. Now Thread nubmer:"+executor.getActiveCount());
+                    while (executor.getQueue().size() >= executor.getMaximumPoolSize()) {
+                        logger.debug("Thread waite ...Already maxThread. Now Thread nubmer:" + executor.getActiveCount());
 //                            logger.debug("线程池中线程数目："+executor.getPoolSize()+"，队列中等待执行的任务数目："+executor.getQueue().size()+"，已执行完别的任务数目："+executor.getCompletedTaskCount());
                         long time = 100;
                         try {
                             Thread.sleep(time);
                         } catch (InterruptedException e) {
-                            logger.error("sleep error!",e);
+                            logger.error("sleep error!", e);
                         }
                     }
                 } catch (JsonProcessingException e) {
-                    logger.error("json error!\n",e);
+                    logger.error("json error!\n", e);
                 }
 
             }
         }
-        while(executor.getActiveCount()!=0 || executor.getQueue().size()!=0){
+        while (executor.getActiveCount() != 0 || executor.getQueue().size() != 0) {
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
-                logger.error("sleep error!\n",e);
+                logger.error("sleep error!\n", e);
             }
         }
             /*关闭线程池*/
@@ -149,33 +193,33 @@ public class ESOperateImpl implements ESOperate {
         try {
 
 
-        logger.info("delete already exist and conflict index ...");
+            logger.info("delete already exist and conflict index ...");
 
-        String url = "";
-        if (DatabaseNodeListInfo.databaseNodeList == null || DatabaseNodeListInfo.databaseNodeList.size() <= 0) {
-            return;
-        }
-        Iterator<DatabaseNode> databaseNodeIt = DatabaseNodeListInfo.databaseNodeList.iterator();
-        while (databaseNodeIt.hasNext()) {
-            DatabaseNode databaseNode = databaseNodeIt.next();
-            Iterator<TableNode> tableNodeIterator = databaseNode.getTableNodeList().iterator();
-            while (tableNodeIterator.hasNext()) {
-                TableNode tableNode = tableNodeIterator.next();
+            String url = "";
+            if (DatabaseNodeListInfo.databaseNodeList == null || DatabaseNodeListInfo.databaseNodeList.size() <= 0) {
+                return;
+            }
+            Iterator<DatabaseNode> databaseNodeIt = DatabaseNodeListInfo.databaseNodeList.iterator();
+            while (databaseNodeIt.hasNext()) {
+                DatabaseNode databaseNode = databaseNodeIt.next();
+                Iterator<TableNode> tableNodeIterator = databaseNode.getTableNodeList().iterator();
+                while (tableNodeIterator.hasNext()) {
+                    TableNode tableNode = tableNodeIterator.next();
 
                     /*逐个删除*/
-                url = indexName(databaseNode.getDbName(), tableNode.getTableName());
-                try {
-                    new MyURLConnection().request(db2esConfig.getEsUrl() + url, "DELETE", "");
-                    logger.info("delete success: " + url);
-                } catch (MalformedURLException e) {
-                    logger.error("delete index error: " + url, e);
-                } catch (IOException e) {
-                    logger.error("delete index error", e);
+                    url = indexName(databaseNode.getDbName(), tableNode.getTableName());
+                    try {
+                        new MyURLConnection().request(db2esConfig.getEsUrl() + url, "DELETE", "");
+                        logger.info("delete success: " + url);
+                    } catch (MalformedURLException e) {
+                        logger.error("delete index error: " + url, e);
+                    } catch (IOException e) {
+                        logger.error("delete index error", e);
+                    }
                 }
             }
-        }
-        logger.info("delete finished!");
-        }catch (Exception e){
+            logger.info("delete finished!");
+        } catch (Exception e) {
             //删除索引失败，不报错，因为第一次导入大概率不存在，会有非常多报错日志，掩盖掉重要日志。
         }
     }
@@ -198,48 +242,111 @@ public class ESOperateImpl implements ESOperate {
         return (tbName + "@" + dbName).toLowerCase();
     }
 
-
-
-
     /**
-     * 创建mapping的线程实例
+     * 每张表启动一个esBulk生成器,多线程并发处理。
      */
-    class MappingThread implements Runnable{
+    public void esBulkGenerator() {
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(1, 1, 100, TimeUnit.MILLISECONDS, new LinkedBlockingDeque<Runnable>(1));
+        for (DatabaseNode db : DatabaseNodeListInfo.databaseNodeList) {
+            for (TableNode tb : db.getTableNodeList()) {
+                executor.execute(new Table2esBulk(db.getDbName(), tb));
+                /*如果当前线程数达到最大值，则阻塞等待*/
+                while(executor.getQueue().size() >= executor.getMaximumPoolSize()){
+                    logger.debug("Already maxThread. Now Thread nubmer:"+executor.getActiveCount());
+                    long time = 200;
+                    try {
+                        Thread.sleep(time);
+                    } catch (InterruptedException e) {
+                        logger.error("sleep error!",e);
+                    }
+                }
+            }
+        }
+        /*阻塞等待线程结束*/
+        while (executor.getActiveCount() != 0 || executor.getQueue().size() != 0) {
+//            logger.info("wait thread number : " + executor.getActiveCount());
+            long time = 1000;
+            try {
+                Thread.sleep(time);
+            } catch (InterruptedException e) {
+                logger.error("sleep error!", e);
+            }
+        }
+        /*关闭线程池*/
+        executor.shutdown();
+    }
 
-        String ESUrl = db2esConfig.getEsUrl();
+    class Table2esBulk implements Runnable {
 
-        String indexName;
-        String mapping;
+        TableNode tableNode;
+        String dbName;
+        String json; //一条esBulk语句
 
-        public MappingThread(String indexName, String mapping){
-            this.indexName = indexName;
-            this.mapping = mapping;
+        public Table2esBulk() {
+
         }
 
-        public void createMapping(){
-            logger.info("creating mapping...");
+        public Table2esBulk(String dbName, TableNode tableNode) {
+            this.dbName = dbName;
+            this.tableNode = tableNode;
+        }
 
-        /*创建索引映射*/
+        @Override
+        public void run() {
+            /**
+             * 组成部分为：请求head和请求body
+             * 1.构建head，包括：判断主键字段、索引名
+             * 2.根据字段类型构建body需要：判断经纬度字段、判断时间字段
+             *
+             */
+            while (true) {
+                if (tableNode.isQueryDataFinished() && tableNode.getRows().size() == 0)
+                    break;
+                List<String> row = null;
+                try {
+                    row = tableNode.getRows().poll(db2esConfig.getQueueWaitTime(), TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
+                    logger.error("Poll row queue error! [ dbName=" + dbName + ", tbName=" + tableNode.getTableName()+"\n",e);
+                }
+                json="";
+                /*构建head头*/
+                json+="{ \"index\":{ \"_index\": \"" + indexName(dbName, tableNode.getTableName()) + "\", \"_type\": \"" + db2esConfig.getIndexType() + "\", \"_id\": \"" + row.get(0) + "\"}}\n";
+                /*构建body*/
+                body(row);
+                try {
+                    tableNode.getEsBulks().offer(json.toString(), db2esConfig.getQueueWaitTime(), TimeUnit.MILLISECONDS);//入队一个bulk
+                } catch (InterruptedException e) {
+                    logger.error("Offer bulk queue error! [ dbName=" + dbName + ", tbName=" + tableNode.getTableName()+"\n", e);
+                }
+            }
+            tableNode.setGeneratorEsBulkFinished(true);
+        }
 
+        /**
+         * 根据字段类型构建head，包括：判断主键字段、判断经纬度字段、判断时间字段
+         */
+        private void body(List<String> row) {
+            Map map = new HashMap();/*数据*/
+            HashMap location = new HashMap();
+            for (int i = 0; i < tableNode.getColumns().size(); ++i) {
+                if (tableNode.getColumns().get(i).equals(db2esConfig.getLatColumn())) {
+                    location.put("lat", row.get(i));
+                } else if (tableNode.getColumns().get(i).equals(db2esConfig.getLonColumn())) {
+                    location.put("lon", row.get(i));
+                } else if (row.get(i) != null && !row.get(i).equals("")) {
+                    map.put(tableNode.getColumns().get(i).toLowerCase(), row.get(i));
+                }
+            }
+            map.put("location", location);
             try {
-                new MyURLConnection().request(ESUrl + indexName,"PUT",mapping);
-                logger.info("mapping finished! indexName: "+ indexName);
-            } catch (MalformedURLException e) {
-                logger.error("【MappingError】", e);
-                logger.error("url: "+ESUrl+indexName+"\n "+ mapping);
-            } catch (ProtocolException e) {
-                logger.error("【MappingError】", e);
-                logger.error("url: "+ESUrl+indexName+"\n "+ mapping);
-            } catch (IOException e) {
-                logger.error("【MappingError】", e);
-                logger.error("url: "+ESUrl+indexName+"\n "+ mapping);
+                json+=objectMapper.writeValueAsString(map) + "\n";
+            } catch (JsonProcessingException e) {
+                logger.error("To json error when generator bulk body!\n",e);
             }
         }
 
-        public void run() {
-            createMapping();
-        }
     }
+
 }
 
 

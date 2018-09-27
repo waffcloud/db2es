@@ -15,8 +15,6 @@ import java.sql.SQLException;
  **/
 public interface DatabaseOperate {
 
-    public void queryAllStructure() throws SQLException; //获取所有表结构
-    public void queryAllData(); //一次获取所有数据
+    public void queryAllStructure(); //获取所有表结构
     public void queryAllDataByPage(); //分页查询
-    public void config(); //数据库配置
 }
