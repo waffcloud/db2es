@@ -15,6 +15,7 @@ public class DatabaseNode {
     String dbName;      /*数据库名*/
     List<TableNode> tableNodeList = new ArrayList<TableNode>();  /*数据表列表*/
     long rowNumber;     /*数据总行数*/
+    int tableFinishedCount; //已完成bulk收集的表数量，这时候还没有正在执行bulk，等待组成bulk Size大的包后，便执行请求
 
     public DatabaseNode(){
 
@@ -23,6 +24,14 @@ public class DatabaseNode {
     public DatabaseNode(String dbName, List<TableNode> tableNodeList){
         this.dbName = dbName;
         this.tableNodeList = tableNodeList;
+    }
+
+    public int getTableFinishedCount() {
+        return tableFinishedCount;
+    }
+
+    public void setTableFinishedCount(int tableFinishedCount) {
+        this.tableFinishedCount = tableFinishedCount;
     }
 
     public String getDbName() {

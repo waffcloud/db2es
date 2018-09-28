@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.justplay1994.github.db2es.client.urlConnection.MyURLConnection;
 import com.justplay1994.github.db2es.config.Db2esConfig;
-import com.justplay1994.github.db2es.config.Oracle2esConfig;
 import com.justplay1994.github.db2es.service.db.current.DatabaseNode;
 import com.justplay1994.github.db2es.service.db.current.DatabaseNodeListInfo;
 import com.justplay1994.github.db2es.service.db.current.TableNode;
@@ -12,16 +11,19 @@ import com.justplay1994.github.db2es.service.es.ESOperate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 
+import javax.sound.sampled.Line;
+import javax.swing.plaf.basic.BasicTreeUI;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.ProtocolException;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.text.DateFormat;
+import java.text.DecimalFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -40,6 +42,9 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 public class ESOperateImpl implements ESOperate {
+
+    static StringBuilder bulkJson = new StringBuilder();   //允许跨库表、跨索引组bulk，head里面已经区别开了
+    static int bulkJsonRow = 0;          //当前esBulk对应的数据行数
 
     private static final Logger logger = LoggerFactory.getLogger(ESOperateImpl.class);
 
@@ -65,10 +70,9 @@ public class ESOperateImpl implements ESOperate {
                 this.mapping = mapping;
             }
 
-            public void createMapping() {
+            public void run() {
                 logger.info("creating mapping...");
-
-        /*创建索引映射*/
+                /*创建索引映射*/
 
                 try {
                     new MyURLConnection().request(ESUrl + indexName, "PUT", mapping);
@@ -84,15 +88,11 @@ public class ESOperateImpl implements ESOperate {
                     logger.error("url: " + ESUrl + indexName + "\n " + mapping);
                 }
             }
-
-            public void run() {
-                createMapping();
-            }
         }
 
         logger.info("begin create es mapping...");
         ThreadPoolExecutor executor = new ThreadPoolExecutor(
-                0,
+                db2esConfig.getMaxThreadCount(),
                 db2esConfig.getMaxThreadCount(),
                 100,
                 TimeUnit.MILLISECONDS,
@@ -186,12 +186,188 @@ public class ESOperateImpl implements ESOperate {
     @Override
     public void bulk() {
 
+        /**
+         * 1. 循环遍历所有的表
+         * 2. 进入每个表的时候，先判断该表所有相关操作是否完成，再判断队列是否完成。
+         * 3. 如果没有完成，则进入该表，一直取队列，直到取完（返回null）后，再退出循环，进入下一张表
+         */
+
+        class BulkThread implements Runnable {
+
+            String json;
+            private String url = db2esConfig.getEsUrl() + "_bulk";
+            private String type = "POST";/*必须大写*/
+            private String result = "";
+
+            BulkThread(String json) {
+                this.json = json;
+            }
+
+            @Override
+            public void run() {
+
+                try {
+
+                    result = new MyURLConnection().request(url, type, json);
+
+                    logger.debug(getRequestFullData());
+
+                    /*201是成功插入，209是失败，*/
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    Map map = objectMapper.readValue(result.getBytes(), Map.class);
+                    if ("true".equals(map.get("errors").toString())) {
+                        logger.error("insert error:");
+                        printEsError(result);
+//                    logger.error(getRequestFullData());//打印整个请求包
+                        addNowFailedRowNumber(bulkJsonRow);
+                    }
+                } catch (MalformedURLException e) {
+                    addNowFailedRowNumber(bulkJsonRow);
+                    logger.error("【BulkDataError1】", e);
+//                    logger.error(getRequestFullData());//打印整个请求包
+                } catch (ProtocolException e) {
+                    addNowFailedRowNumber(bulkJsonRow);
+                    logger.error("【BulkDataError2】", e);
+//                    logger.error(getRequestFullData());//打印整个请求包
+                } catch (IOException e) {
+                    addNowFailedRowNumber(bulkJsonRow);
+                    logger.error("【BulkDataError3】", e);
+//                    logger.error(getRequestFullData());//打印整个请求包
+                } finally {
+                    printNowRowNumber();/*打印进度条*/
+                }
+            }
+
+            /*打印进度条*/
+            synchronized public void printNowRowNumber() {
+
+                DecimalFormat df = new DecimalFormat("0.00");
+                logger.info("has finished: " + df.format(((float) DatabaseNodeListInfo.isFinishedCount / DatabaseNodeListInfo.rowNumber) * 100) + "% " + DatabaseNodeListInfo.isFinishedCount + "/" + DatabaseNodeListInfo.rowNumber);
+                logger.info("has error: " + df.format(((float) DatabaseNodeListInfo.failCount / DatabaseNodeListInfo.rowNumber) * 100) + "%");
+            }
+
+            /*获取完整请求信息，包括数据体*/
+            public String getRequestFullData() {
+                return "[request] url:" + url + ",type:" + type + ",body:" + json + "" +
+                        "\n[result]: " + result;
+            }
+
+            /*打印ES关键错误信息*/
+            public void printEsError(String result){
+                try {
+                    ArrayList<LinkedHashMap> items = (ArrayList) objectMapper.readValue(result, HashMap.class).get("items");
+                    for (LinkedHashMap item : items){
+                        try {
+                            LinkedHashMap index = (LinkedHashMap) item.get("index");
+                            String _index = (String) index.get("_index");
+                            LinkedHashMap error = (LinkedHashMap) index.get("error");
+                            LinkedHashMap cause_by = (LinkedHashMap) error.get("caused_by");
+                            String reason = (String) cause_by.get("reason");
+                            logger.error("【index: " + _index + ",error: " + reason + "】");
+                        } catch (Exception e){
+                            //没有解析到error则跳过
+                        }
+                    }
+                } catch (IOException e) {
+                    logger.error("Json format error!\n",e);
+                }
+            }
+
+
+            synchronized void addNowFailedRowNumber(long addNumber) {
+                DatabaseNodeListInfo.failCount += addNumber;
+            }
+
+        }
+
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(db2esConfig.getMaxThreadCount(), db2esConfig.getMaxThreadCount(), 1000, TimeUnit.MILLISECONDS, new LinkedBlockingDeque<Runnable>(db2esConfig.getMaxThreadCount()));
+
+
+        while (true) {//循环遍历，直到所有的都结束
+            boolean allDbFinished = true;
+            for (DatabaseNode db : DatabaseNodeListInfo.databaseNodeList) {//遍历所有库，跳过已完成的库
+                if (db.getTableFinishedCount() != db.getTableNodeList().size())
+                    allDbFinished = false;
+            }
+            if (allDbFinished)
+                break;
+            for (DatabaseNode db : DatabaseNodeListInfo.databaseNodeList) {//遍历所有库
+                if (db.getTableFinishedCount() == db.getTableNodeList().size()) {//该库所有bulk已经收集完毕，基本请求完毕，可能会有最有一个不足bulk size的还没有请求。
+                    continue;
+                }
+                for (TableNode tb : db.getTableNodeList()) {//遍历所有表
+                    if (tb.isDoEsBulk()) //该表收集bulk已经完成，不需要进入该表
+                        continue;
+                    if (tb.getEsBulks().size() > 0) {
+                        while (true) {
+                            String temp = tb.getEsBulks().poll();
+                            if (tb.isGeneratorEsBulkFinished() && temp == null) {//先判断bulk是否完成，bulk完成说明不会再出现入队操作，再判断队列如果为空，说明该表已经完成了。
+                                tb.setDoEsBulk(true);//该表完成bulk的所有搜集工作，该表不需要再次进入。
+                                db.setTableFinishedCount(db.getTableFinishedCount() + 1);//已完成的表的数量+1
+                                break;
+                            } else if (temp == null) { //如果bulk没有完成，只是当前队列为空，只是说明当前表没有完成，只是生产不及了。临时退出该表，后续还会进来。
+                                break;
+                            }
+                            DatabaseNodeListInfo.isFinishedCount++;//已完成的行数增加
+                            bulkJsonRow++; //bulk对应的行数增加
+                            bulkJson.append(temp);
+                            /*等待请求body满一个数据块大小，便开始执行请求*/
+                            if (bulkJson.length() >= db2esConfig.getEsBulkSize() * 1024 * 1024) {
+                                executor.execute(new BulkThread(bulkJson.toString()));
+                                bulkJson.delete(0, bulkJson.length());/*清空请求数据体*/
+                                bulkJsonRow = 0;//同时情况bulk请求对应的行数
+                                /*如果当前线程数达到最大值，则阻塞等待*/
+                                while (executor.getQueue().size() >= executor.getMaximumPoolSize()) {
+                                    logger.debug("Already maxThread. Now Thread nubmer:" + executor.getActiveCount());
+                                    long time = 200;
+                                    try {
+                                        Thread.sleep(time);
+                                    } catch (InterruptedException e) {
+                                        logger.error("sleep error!", e);
+                                    }
+                                }
+                            }
+                        }
+                    }else {
+                        //解决BUG：遇到一种情况，队列为空了，bulkGenerator标志位也为true，但是该表bulk导入的标志位还是没有完成。
+                        //可能的问题：bulkGenerator刚好产生完数据，还没有更改标志位的时候，bulk就消费了，导致队列为空，但是bulk还没有完成。然后空队列又不会进来，所有死循环。
+                        if (tb.isGeneratorEsBulkFinished() && tb.getEsBulks().size() == 0){//先判断bulk是否完成，bulk完成说明不会再出现入队操作，再判断队列如果为空，说明该表已经完成了。
+                            tb.setDoEsBulk(true);//该表完成bulk的所有搜集工作，该表不需要再次进入。
+                            db.setTableFinishedCount(db.getTableFinishedCount() + 1);//已完成的表的数量+1
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+        //BUG:这里会被调用2次
+        /*将剩余不足一个数据块的数据单独发起请求*/
+        if (bulkJson.length() > 0)
+            executor.execute(new BulkThread(bulkJson.toString()));
+        /*阻塞等待线程结束*/
+        while (executor.getActiveCount() != 0 || executor.getQueue().size() != 0) {
+//            logger.info("wait thread number : " + executor.getActiveCount());
+            long time = 1000;
+            try {
+                Thread.sleep(time);
+            } catch (InterruptedException e) {
+                logger.error("sleep error!", e);
+            }
+        }
+    }
+
+    public Thread createBulkThread() {
+        return new Thread(new Runnable() {
+            @Override
+            public void run() {
+                bulk();
+            }
+        });
     }
 
     @Override
     public void deleteAllConflict() {
         try {
-
 
             logger.info("delete already exist and conflict index ...");
 
@@ -213,6 +389,8 @@ public class ESOperateImpl implements ESOperate {
                         logger.info("delete success: " + url);
                     } catch (MalformedURLException e) {
                         logger.error("delete index error: " + url, e);
+                    } catch (FileNotFoundException e) {
+                        // 删除不存在的索引，会报此错误，不打印，不抛出该异常
                     } catch (IOException e) {
                         logger.error("delete index error", e);
                     }
@@ -224,13 +402,9 @@ public class ESOperateImpl implements ESOperate {
         }
     }
 
-    @Override
-    public void config() {
-
-    }
 
     /**
-     * 索引名与库表名的关系映射
+     * 索引名与库表名的关系映射，ES索引名必须是小写
      *
      * @param dbName
      * @param tbName
@@ -246,18 +420,103 @@ public class ESOperateImpl implements ESOperate {
      * 每张表启动一个esBulk生成器,多线程并发处理。
      */
     public void esBulkGenerator() {
-        ThreadPoolExecutor executor = new ThreadPoolExecutor(1, 1, 100, TimeUnit.MILLISECONDS, new LinkedBlockingDeque<Runnable>(1));
+        class Table2esBulk implements Runnable {
+
+            TableNode tableNode;
+            String dbName;
+            String json; //一条esBulk语句
+
+            public Table2esBulk() {
+
+            }
+
+            public Table2esBulk(String dbName, TableNode tableNode) {
+                this.dbName = dbName;
+                this.tableNode = tableNode;
+            }
+
+            @Override
+            public void run() {
+
+                /**
+                 * 组成部分为：请求head和请求body
+                 * 1.构建head，包括：判断主键字段、索引名
+                 * 2.根据字段类型构建body需要：判断经纬度字段、判断时间字段
+                 *
+                 */
+                while (true) {
+                    if (tableNode.isQueryDataFinished() && tableNode.getRows().size() == 0)
+                        break;
+                    List<String> row = null;
+                    try {
+                        row = tableNode.getRows().poll(db2esConfig.getQueueWaitTime(), TimeUnit.MILLISECONDS);
+                        if (row == null) continue;
+                        json = "";
+                            /*构建head头*/
+                        json += "{ \"index\":{ \"_index\": \"" + indexName(dbName, tableNode.getTableName()) + "\", \"_type\": \"" + db2esConfig.getIndexType() + "\", \"_id\": \"" + row.get(0) + "\"}}\n";
+                            /*构建body*/
+                        body(row);
+                        try {
+                            tableNode.getEsBulks().offer(json.toString(), db2esConfig.getQueueWaitTime(), TimeUnit.MILLISECONDS);//入队一个bulk
+                        } catch (InterruptedException e) {
+                            logger.error("Offer bulk queue error! [ dbName=" + dbName + ", tbName=" + tableNode.getTableName() + "\n", e);
+                        }
+                    } catch (InterruptedException e) {
+                        logger.error("Poll row queue error! [ dbName=" + dbName + ", tbName=" + tableNode.getTableName() + "\n", e);
+                    }
+
+                }
+                tableNode.setGeneratorEsBulkFinished(true);
+            }
+
+            /**
+             * 根据字段类型构建head，包括：判断主键字段、判断经纬度字段、判断时间字段
+             */
+            private void body(List<String> row) {
+                Map map = new HashMap();/*数据*/
+                HashMap location = new HashMap();
+                for (int i = 0; i < tableNode.getColumns().size(); ++i) {
+                    if (tableNode.getColumns().get(i).equals(db2esConfig.getLatColumn())) {
+                        location.put("lat", row.get(i));
+                    } else if (tableNode.getColumns().get(i).equals(db2esConfig.getLonColumn())) {
+                        location.put("lon", row.get(i));
+                    } else if (row.get(i) != null && !row.get(i).equals("")) { //去除空数据，节省es搜索空间
+                        if (tableNode.getDataType().get(i).equals("DATE")) {
+                            DateFormat df = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
+                            Date date = null;
+                            try {
+                                date = df.parse(row.get(i));
+                            } catch (ParseException e) {
+                                logger.error("Date format error!\n", e);
+                            }
+                            map.put(tableNode.getColumns().get(i), date);
+                        } else {
+                            map.put(tableNode.getColumns().get(i), row.get(i));
+                        }
+                    }
+                }
+                map.put("location", location);
+                try {
+                    json += objectMapper.writeValueAsString(map) + "\n";
+                } catch (JsonProcessingException e) {
+                    logger.error("To json error when generator bulk body!\n", e);
+                }
+            }
+
+        }
+
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(db2esConfig.getMaxThreadCount(), db2esConfig.getMaxThreadCount(), 100, TimeUnit.MILLISECONDS, new LinkedBlockingDeque<Runnable>(db2esConfig.getMaxThreadCount()));
         for (DatabaseNode db : DatabaseNodeListInfo.databaseNodeList) {
             for (TableNode tb : db.getTableNodeList()) {
                 executor.execute(new Table2esBulk(db.getDbName(), tb));
                 /*如果当前线程数达到最大值，则阻塞等待*/
-                while(executor.getQueue().size() >= executor.getMaximumPoolSize()){
-                    logger.debug("Already maxThread. Now Thread nubmer:"+executor.getActiveCount());
+                while (executor.getQueue().size() >= executor.getMaximumPoolSize()) {
+                    logger.debug("Already maxThread. Now Thread nubmer:" + executor.getActiveCount());
                     long time = 200;
                     try {
                         Thread.sleep(time);
                     } catch (InterruptedException e) {
-                        logger.error("sleep error!",e);
+                        logger.error("sleep error!", e);
                     }
                 }
             }
@@ -276,75 +535,13 @@ public class ESOperateImpl implements ESOperate {
         executor.shutdown();
     }
 
-    class Table2esBulk implements Runnable {
-
-        TableNode tableNode;
-        String dbName;
-        String json; //一条esBulk语句
-
-        public Table2esBulk() {
-
-        }
-
-        public Table2esBulk(String dbName, TableNode tableNode) {
-            this.dbName = dbName;
-            this.tableNode = tableNode;
-        }
-
-        @Override
-        public void run() {
-            /**
-             * 组成部分为：请求head和请求body
-             * 1.构建head，包括：判断主键字段、索引名
-             * 2.根据字段类型构建body需要：判断经纬度字段、判断时间字段
-             *
-             */
-            while (true) {
-                if (tableNode.isQueryDataFinished() && tableNode.getRows().size() == 0)
-                    break;
-                List<String> row = null;
-                try {
-                    row = tableNode.getRows().poll(db2esConfig.getQueueWaitTime(), TimeUnit.MILLISECONDS);
-                } catch (InterruptedException e) {
-                    logger.error("Poll row queue error! [ dbName=" + dbName + ", tbName=" + tableNode.getTableName()+"\n",e);
-                }
-                json="";
-                /*构建head头*/
-                json+="{ \"index\":{ \"_index\": \"" + indexName(dbName, tableNode.getTableName()) + "\", \"_type\": \"" + db2esConfig.getIndexType() + "\", \"_id\": \"" + row.get(0) + "\"}}\n";
-                /*构建body*/
-                body(row);
-                try {
-                    tableNode.getEsBulks().offer(json.toString(), db2esConfig.getQueueWaitTime(), TimeUnit.MILLISECONDS);//入队一个bulk
-                } catch (InterruptedException e) {
-                    logger.error("Offer bulk queue error! [ dbName=" + dbName + ", tbName=" + tableNode.getTableName()+"\n", e);
-                }
+    public Thread createEsBulkGeneratorTread() {
+        return new Thread(new Runnable() {
+            @Override
+            public void run() {
+                esBulkGenerator();
             }
-            tableNode.setGeneratorEsBulkFinished(true);
-        }
-
-        /**
-         * 根据字段类型构建head，包括：判断主键字段、判断经纬度字段、判断时间字段
-         */
-        private void body(List<String> row) {
-            Map map = new HashMap();/*数据*/
-            HashMap location = new HashMap();
-            for (int i = 0; i < tableNode.getColumns().size(); ++i) {
-                if (tableNode.getColumns().get(i).equals(db2esConfig.getLatColumn())) {
-                    location.put("lat", row.get(i));
-                } else if (tableNode.getColumns().get(i).equals(db2esConfig.getLonColumn())) {
-                    location.put("lon", row.get(i));
-                } else if (row.get(i) != null && !row.get(i).equals("")) {
-                    map.put(tableNode.getColumns().get(i).toLowerCase(), row.get(i));
-                }
-            }
-            map.put("location", location);
-            try {
-                json+=objectMapper.writeValueAsString(map) + "\n";
-            } catch (JsonProcessingException e) {
-                logger.error("To json error when generator bulk body!\n",e);
-            }
-        }
-
+        });
     }
 
 }

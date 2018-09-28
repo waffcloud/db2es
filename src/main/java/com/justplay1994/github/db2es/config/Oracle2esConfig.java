@@ -48,7 +48,7 @@ public class Oracle2esConfig {
 
     public boolean isNull(String[] s){
         if (s == null)return true;
-        if (s.length==1 && s[0]=="")return true;
+        if (s.length==1 && s[0].equals(""))return true;
         return false;
     }
 

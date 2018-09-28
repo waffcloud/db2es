@@ -37,4 +37,38 @@ public class EsOperate {
         esOperate.createMapping();//生成es索引映射（index mapping)
         System.out.print("");
     }
+
+    @Test
+    public void db2esTest(){
+        oracleOperate.queryAllStructure();// 请求所有的数据结构
+        esOperate.deleteAllConflict();//删除重名的冲突索引
+        esOperate.createMapping();//生成es索引映射（index mapping)
+        oracleOperate.queryAllDataByPage();//单线程查询数据
+        esOperate.esBulkGenerator();//单线程产生esBulk请求
+        esOperate.bulk();//阻塞导入数据至es
+    }
+
+    @Test
+    public void oracle2esThread() throws InterruptedException {
+        oracleOperate.queryAllStructure();// 请求所有的数据结构
+        esOperate.deleteAllConflict();//删除重名的冲突索引
+        esOperate.createMapping();//生成es索引映射（index mapping)
+//        oracleOperate.queryAllDataByPage();//单线程查询数据
+        Thread oracle = oracleOperate.createQueryAllDataByPage();
+        oracle.start();
+//        esOperate.esBulkGenerator();//单线程产生esBulk请求
+        Thread generator = esOperate.createEsBulkGeneratorTread();
+        generator.start();
+//        esOperate.bulk();//阻塞导入数据至es
+        Thread bulk = esOperate.createBulkThread();
+        bulk.start();
+
+        while (true){
+            if (oracle.isAlive() || generator.isAlive() || bulk.isAlive()){
+                Thread.sleep(2000);
+            }else {
+                break;
+            }
+        }
+    }
 }

@@ -15,8 +15,9 @@ import com.justplay1994.github.db2es.service.db.current.TableNode;
 public interface ESOperate {
     public void createMapping(); //创建映射
     public void bulk(); //批量导入数据
+
+    public Thread createBulkThread();
     public void deleteAllConflict(); //删除已存在的同名索引，建议与navicat导入数据策略一致，先删再导
-    public void config();//搜索引擎配置
     /**
      * 索引名与库表名的关系映射
      *
@@ -32,4 +33,6 @@ public interface ESOperate {
      * @return
      */
     public void esBulkGenerator();
+
+    public Thread createEsBulkGeneratorTread();//创建线程
 }

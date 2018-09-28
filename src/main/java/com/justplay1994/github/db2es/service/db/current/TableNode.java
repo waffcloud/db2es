@@ -21,6 +21,7 @@ public class TableNode {
     LinkedBlockingQueue<String> esBulks;
     private boolean queryDataFinished = false;
     private boolean generatorEsBulkFinished = false;
+    private boolean doEsBulk = false;
     /*----------- constructor  -----------------*/
     public TableNode(){
 
@@ -38,6 +39,14 @@ public class TableNode {
     }
 
     /*--------- setter getter ----------*/
+
+    public boolean isDoEsBulk() {
+        return doEsBulk;
+    }
+
+    public void setDoEsBulk(boolean doEsBulk) {
+        this.doEsBulk = doEsBulk;
+    }
 
     public boolean isQueryDataFinished() {
         return queryDataFinished;

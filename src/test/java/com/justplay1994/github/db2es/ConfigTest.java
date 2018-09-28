@@ -32,5 +32,6 @@ public class ConfigTest {
     public void configExtendsTest(){
         System.out.println(db2esConfig.getLatColumn());
         System.out.println(db2esConfig.getLonColumn());
+        System.out.println(db2esConfig.getEsBulkSize());
     }
 }

@@ -117,7 +117,6 @@ public class OracleOperateImpl implements OracleOperate {
                 logger.debug("[dbName= " + dbStr + ", tbName= " + tbStr+"]");
                 /*判断该库是否存在*/
                 if (dbList.size() != 0 && dbStr.equalsIgnoreCase(dbList.get(dbList.size() - 1).getDbName())) {
-                    List<TableNode> tbList = new ArrayList<TableNode>();
                     TableNode tableNode = new TableNode(tbStr);
                     dbList.get(dbList.size() - 1).getTableNodeList().add(tableNode);
                 } else {/*不存在则新建一个库节点，并且新建表节点*/
@@ -130,7 +129,7 @@ public class OracleOperateImpl implements OracleOperate {
             }
 
             /*获取表名、字段名\字段类型*/
-            /*TODO 只能假设，同一个owner（用户）下没有重名的表了，这里有风险*/
+            /*TODO 表空间、owner的关系需要理顺*/
             String sql1 = "SELECT TABLE_NAME,COLUMN_NAME,DATA_TYPE from all_tab_columns WHERE OWNER='" + oracle2esConfig.getOwner().toUpperCase() + "'";
             logger.debug("[sql: " + sql1 + " ]");
             rs = st.executeQuery(sql1);
@@ -152,7 +151,6 @@ public class OracleOperateImpl implements OracleOperate {
                     }
                 }
             }
-
         } catch (SQLException e) {
             logger.error("Query oracle error!\n", e);
         } finally {
@@ -207,7 +205,7 @@ public class OracleOperateImpl implements OracleOperate {
                                 }
                                 boolean insertRowSuccess = tableNode.getRows().offer(row, db2esConfig.getQueueWaitTime(), TimeUnit.MILLISECONDS);
                                 if (!insertRowSuccess){
-                                    logger.error("Offer row queue error!\n");
+                                    logger.error("Offer row queue error. Timeout!\n");
                                 }
                             }
                             startPosition = endPosition;
@@ -224,6 +222,16 @@ public class OracleOperateImpl implements OracleOperate {
         } finally {
             close(con, st, rs);
         }
+    }
+
+    public Thread createQueryAllDataByPage(){
+        return new Thread(new Runnable() {
+            @Override
+            public void run() {
+                queryAllDataByPage();
+            }
+        });
+
     }
 
     public void close(Connection con, Statement st, ResultSet rs){
