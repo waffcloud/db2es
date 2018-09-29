@@ -45,7 +45,7 @@ public class Oracle2esImpl implements Oracle2es {
     ESOperate esOperate;
 
     @Override
-    public void transfer() {
+    public String transfer() {
         long startTime = System.currentTimeMillis();
 
         oracleOperate.queryAllStructure();// 查询所有数据结构，阻塞
@@ -83,12 +83,21 @@ public class Oracle2esImpl implements Oracle2es {
         long m = (time/1000)/60;
         long s = time%60;
 
-        logger.info("\n\n============ Oracle2es finished! ==================start");
-        logger.info("*  total dbNumber:   " + DatabaseNodeListInfo.dbNumber);
-        logger.info("*  total tbNumber:   " + DatabaseNodeListInfo.tbNumber);
-        logger.info("*  total totalRowNumber:  " + DatabaseNodeListInfo.totalRowNumber);
-        logger.info("*  total failNumber: " + DatabaseNodeListInfo.failCount);
-        logger.info("*  total Time: " + m + "m" + s + "s");
-        logger.info("\n============ Oracle2es finished! ==================end\n\n");
+//        logger.info("\n\n============ Oracle2es finished! ==================start");
+//        logger.info("*  total dbNumber:   " + DatabaseNodeListInfo.dbNumber);
+//        logger.info("*  total tbNumber:   " + DatabaseNodeListInfo.tbNumber);
+//        logger.info("*  total totalRowNumber:  " + DatabaseNodeListInfo.totalRowNumber);
+//        logger.info("*  total failNumber: " + DatabaseNodeListInfo.failCount);
+//        logger.info("*  total Time: " + m + "m" + s + "s");
+//        logger.info("\n============ Oracle2es finished! ==================end\n\n");
+
+        String result = "\n\n============ Oracle2es finished! ==================start"+"\n"+
+        "*  total dbNumber:   " + DatabaseNodeListInfo.dbNumber+"\n"+
+        "*  total tbNumber:   " + DatabaseNodeListInfo.tbNumber+"\n"+
+        "*  total totalRowNumber:  " + DatabaseNodeListInfo.totalRowNumber+"\n"+
+        "*  total failNumber: " + DatabaseNodeListInfo.failCount+"\n"+
+        "*  total Time: " + m + "m" + s + "s"+"\n"+
+        "\n============ Oracle2es finished! ==================end\n\n";
+        return result;
     }
 }

@@ -12,7 +12,7 @@ package com.justplay1994.github.db2es.service.db2es;
  **/
 public interface Db2es {
 
-    public void transfer();//数据同步
+    public String transfer();//数据同步
 
 //    public void dictionary();//生成数据字典
 //

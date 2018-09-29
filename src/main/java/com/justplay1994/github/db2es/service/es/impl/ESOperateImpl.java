@@ -393,6 +393,7 @@ public class ESOperateImpl implements ESOperate {
                         logger.error("delete index error: " + url, e);
                     } catch (FileNotFoundException e) {
                         // 删除不存在的索引，会报此错误，不打印，不抛出该异常
+                        logger.error("delete error: " + url);
                     } catch (IOException e) {
                         logger.error("delete index error", e);
                     }
