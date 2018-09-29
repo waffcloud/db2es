@@ -1,1 +1,1 @@
-java -jar ../target/db2es.jar --Dfile.encoding=UTF-8
+java -Dfile.encoding=UTF-8 -jar ../target/db2es.jar

@@ -53,6 +53,11 @@ public class Oracle2esImpl implements Oracle2es {
         oracleOperate.deleteTableWithoutGeo(); //删除没有经度和纬度字段的表
 
         esOperate.deleteAllConflict();//删除冲突索引
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            logger.error("sleep error!\n",e);
+        }
         esOperate.createMapping();// 创建索引映射，阻塞
 
 //        oracleOperate.queryAllDataByPage();// 数据分页查询，将数据插入数据队列，数据队列生产者
