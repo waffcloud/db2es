@@ -24,6 +24,8 @@ public class QueueTest {
         System.out.println(linkedBlockingQueue.offer("1",3000, TimeUnit.MILLISECONDS));
         System.out.println(linkedBlockingQueue.offer("2",3000, TimeUnit.MILLISECONDS));
         System.out.println(linkedBlockingQueue.offer("3",3000, TimeUnit.MILLISECONDS));//false
+        System.out.println(linkedBlockingQueue.offer("3",3000, TimeUnit.MILLISECONDS));//fals
+        System.out.println(linkedBlockingQueue.offer("3",3000, TimeUnit.MILLISECONDS));//fals
         System.out.println(linkedBlockingQueue.poll(3000, TimeUnit.MILLISECONDS));
         System.out.println(linkedBlockingQueue.poll(3000, TimeUnit.MILLISECONDS));
         System.out.println(linkedBlockingQueue.poll(3000, TimeUnit.MILLISECONDS));//null

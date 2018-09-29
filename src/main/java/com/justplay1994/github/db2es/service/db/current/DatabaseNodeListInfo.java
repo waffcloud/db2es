@@ -16,7 +16,9 @@ public class DatabaseNodeListInfo {
     public static List<DatabaseNode> databaseNodeList;/*所有数据*/
     public static int dbNumber=0;/*数据库总数量*/
     public static int tbNumber = 0;/*表总数量*/
-    public static long rowNumber=0;/*总数据行数*/
+    public static long totalRowNumber=0;/*已导入数据行数*/
+
+    public static long queryRowNumber=0;/*已导入数据行数*/
 
     public static int isFinishedCount = 0; //已完成的行数
     public static int failCount = 0;      //失败的行数

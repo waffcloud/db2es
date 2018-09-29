@@ -16,6 +16,7 @@ import java.sql.SQLException;
 public interface DatabaseOperate {
 
     public void queryAllStructure(); //获取所有表结构
+    public void deleteTableWithoutGeo();//删除没有JD84和WD84的表
     public void queryAllDataByPage(); //分页查询
     public Thread createQueryAllDataByPage();   //创建分页查询线程
 }

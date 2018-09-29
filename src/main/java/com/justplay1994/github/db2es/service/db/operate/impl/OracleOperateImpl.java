@@ -160,6 +160,33 @@ public class OracleOperateImpl implements OracleOperate {
     }
 
     /**
+     * 删除没有经纬度字段的表
+     */
+    public void deleteTableWithoutGeo(){
+        Iterator<DatabaseNode> dbs = DatabaseNodeListInfo.databaseNodeList.iterator();
+        while (dbs.hasNext()){
+            Iterator<TableNode> tbs = dbs.next().getTableNodeList().iterator();
+            while (tbs.hasNext()){
+                Iterator<String> cols = tbs.next().getColumns().iterator();
+                boolean lat = false;
+                boolean lon = false;
+                while (cols.hasNext()){
+                    String col = cols.next();
+                    if (db2esConfig.getLatColumn().equals(col)){
+                        lat = true;
+                    }
+                    if (db2esConfig.getLonColumn().equals(col)){
+                        lon = true;
+                    }
+                }
+                if (!(lat && lon)){
+                    tbs.remove();
+                }
+            }
+        }
+    }
+
+    /**
      * 1.调度器，遍历所有表名
      * 2.调度器，控制分页参数
      * 3.多线程，分页查询每张表的数据
@@ -174,6 +201,7 @@ public class OracleOperateImpl implements OracleOperate {
             con = dataSource.getConnection();
             st = con.createStatement();
             List<DatabaseNode> databaseNodeList = DatabaseNodeListInfo.databaseNodeList;
+            /*遍历所有表结构，计算出总数据量*/
             for (DatabaseNode databaseNode : databaseNodeList) {
                 DatabaseNodeListInfo.dbNumber++;
                 for (TableNode tableNode : databaseNode.getTableNodeList()) {
@@ -182,12 +210,18 @@ public class OracleOperateImpl implements OracleOperate {
                     String queryRowNumber = "SELECT COUNT(*) FROM " + tableNode.getTableName();
                     rs = st.executeQuery(queryRowNumber);
                     if (rs.next()) {
+                        //该表数据量统计：该表行数
                         tableNode.setRowNumber(rs.getInt(1));
                     }
                     /*总共数据量统计：所有数据量+该表数据量*/
-                    DatabaseNodeListInfo.rowNumber += tableNode.getRowNumber();
+                    DatabaseNodeListInfo.totalRowNumber += tableNode.getRowNumber();
                     /*该库数据量统计：该库所有数据量+该表数据量*/
                     databaseNode.setRowNumber(databaseNode.getRowNumber() + tableNode.getRowNumber());
+                }
+            }
+            //查询所有数据
+            for (DatabaseNode databaseNode : databaseNodeList) {
+                for (TableNode tableNode : databaseNode.getTableNodeList()) {
                     if (tableNode.getRowNumber() > 0) {
                         int startPosition = 1;
                         int endPosition;
@@ -198,6 +232,8 @@ public class OracleOperateImpl implements OracleOperate {
                             queryByPage = "SELECT * FROM(SELECT ROWID ROW_ID, ROWNUM ROW_NUM, T.*  FROM " + tableNode.getTableName() + " T) TM WHERE ROW_NUM >= " + startPosition + " AND ROW_NUM < " + endPosition;
                             rs = st.executeQuery(queryByPage);
                             while (rs.next()) {
+                                //查询数据量统计：新增查询数据量
+                                DatabaseNodeListInfo.queryRowNumber++;
                                 ArrayList<String> row = new ArrayList<String>();
                                 List cols = tableNode.getColumns();
                                 for (int i = 0; i < cols.size(); ++i) {

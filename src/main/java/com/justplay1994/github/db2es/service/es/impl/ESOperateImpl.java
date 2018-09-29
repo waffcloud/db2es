@@ -232,7 +232,7 @@ public class ESOperateImpl implements ESOperate {
                 } catch (IOException e) {
                     addNowFailedRowNumber(bulkJsonRow);
                     logger.error("【BulkDataError3】", e);
-//                    logger.error(getRequestFullData());//打印整个请求包
+                    logger.error(getRequestFullData());//打印整个请求包
                 } finally {
                     printNowRowNumber();/*打印进度条*/
                 }
@@ -242,8 +242,9 @@ public class ESOperateImpl implements ESOperate {
             synchronized public void printNowRowNumber() {
 
                 DecimalFormat df = new DecimalFormat("0.00");
-                logger.info("has finished: " + df.format(((float) DatabaseNodeListInfo.isFinishedCount / DatabaseNodeListInfo.rowNumber) * 100) + "% " + DatabaseNodeListInfo.isFinishedCount + "/" + DatabaseNodeListInfo.rowNumber);
-                logger.info("has error: " + df.format(((float) DatabaseNodeListInfo.failCount / DatabaseNodeListInfo.rowNumber) * 100) + "%");
+                logger.info("query finished: " + df.format(((float) DatabaseNodeListInfo.queryRowNumber / DatabaseNodeListInfo.totalRowNumber) * 100) + "% " + DatabaseNodeListInfo.queryRowNumber + "/" + DatabaseNodeListInfo.totalRowNumber);
+                logger.info("has finished: " + df.format(((float) DatabaseNodeListInfo.isFinishedCount / DatabaseNodeListInfo.totalRowNumber) * 100) + "% " + DatabaseNodeListInfo.isFinishedCount + "/" + DatabaseNodeListInfo.totalRowNumber);
+                logger.info("has error: " + df.format(((float) DatabaseNodeListInfo.failCount / DatabaseNodeListInfo.totalRowNumber) * 100) + "% " + DatabaseNodeListInfo.failCount + "/" + DatabaseNodeListInfo.totalRowNumber);
             }
 
             /*获取完整请求信息，包括数据体*/
@@ -260,10 +261,11 @@ public class ESOperateImpl implements ESOperate {
                         try {
                             LinkedHashMap index = (LinkedHashMap) item.get("index");
                             String _index = (String) index.get("_index");
+                            String _id = (String) index.get("_id");
                             LinkedHashMap error = (LinkedHashMap) index.get("error");
                             LinkedHashMap cause_by = (LinkedHashMap) error.get("caused_by");
                             String reason = (String) cause_by.get("reason");
-                            logger.error("【index: " + _index + ",error: " + reason + "】");
+                            logger.error("【index: " + _index + ",error: " + reason + ",id="+_id+"】");
                         } catch (Exception e){
                             //没有解析到error则跳过
                         }
@@ -292,7 +294,7 @@ public class ESOperateImpl implements ESOperate {
             if (allDbFinished)
                 break;
             for (DatabaseNode db : DatabaseNodeListInfo.databaseNodeList) {//遍历所有库
-                if (db.getTableFinishedCount() == db.getTableNodeList().size()) {//该库所有bulk已经收集完毕，基本请求完毕，可能会有最有一个不足bulk size的还没有请求。
+                if (db.getTableFinishedCount() == db.getTableNodeList().size()) {//该库下的所有数据都已使用完毕，不需要再进入。该库所有bulk已经收集完毕，基本请求完毕，可能会有最有一个不足bulk size的还没有请求。
                     continue;
                 }
                 for (TableNode tb : db.getTableNodeList()) {//遍历所有表
@@ -416,6 +418,8 @@ public class ESOperateImpl implements ESOperate {
         return (tbName + "@" + dbName).toLowerCase();
     }
 
+
+
     /**
      * 每张表启动一个esBulk生成器,多线程并发处理。
      */
@@ -451,18 +455,24 @@ public class ESOperateImpl implements ESOperate {
                     try {
                         row = tableNode.getRows().poll(db2esConfig.getQueueWaitTime(), TimeUnit.MILLISECONDS);
                         if (row == null) continue;
-                        json = "";
-                            /*构建head头*/
-                        json += "{ \"index\":{ \"_index\": \"" + indexName(dbName, tableNode.getTableName()) + "\", \"_type\": \"" + db2esConfig.getIndexType() + "\", \"_id\": \"" + row.get(0) + "\"}}\n";
-                            /*构建body*/
-                        body(row);
+
                         try {
-                            tableNode.getEsBulks().offer(json.toString(), db2esConfig.getQueueWaitTime(), TimeUnit.MILLISECONDS);//入队一个bulk
+                            //将一行数据，转化为bulk请求，如果成功则入队
+                            if (bulkGeneratorByRow(row))
+                                tableNode.getEsBulks().offer(json.toString(), db2esConfig.getQueueWaitTime(), TimeUnit.MILLISECONDS);//入队一个bulk
+                            else {
+                                //如果改行数据错误，则已完成数据行数+1，失败行数+1
+                                DatabaseNodeListInfo.isFinishedCount++;
+                                DatabaseNodeListInfo.failCount++;
+                                logger.error("Row data error, lat or lon is null! [ dbName=" + dbName + ", tbName=" + tableNode.getTableName() + ",ROWID="+row.get(0)+"]\n");
+                            }
                         } catch (InterruptedException e) {
                             logger.error("Offer bulk queue error! [ dbName=" + dbName + ", tbName=" + tableNode.getTableName() + "\n", e);
                         }
                     } catch (InterruptedException e) {
                         logger.error("Poll row queue error! [ dbName=" + dbName + ", tbName=" + tableNode.getTableName() + "\n", e);
+                    } catch (Exception e){
+                        logger.error("Bulk generator error! [ dbName=" + dbName + ", tbName=" + tableNode.getTableName() + "\n",e);
                     }
 
                 }
@@ -472,16 +482,20 @@ public class ESOperateImpl implements ESOperate {
             /**
              * 根据字段类型构建head，包括：判断主键字段、判断经纬度字段、判断时间字段
              */
-            private void body(List<String> row) {
+            private boolean bulkGeneratorByRow(List<String> row) {
                 Map map = new HashMap();/*数据*/
                 HashMap location = new HashMap();
+                String lat="";
+                String lon="";
                 for (int i = 0; i < tableNode.getColumns().size(); ++i) {
-                    if (tableNode.getColumns().get(i).equals(db2esConfig.getLatColumn())) {
-                        location.put("lat", row.get(i));
-                    } else if (tableNode.getColumns().get(i).equals(db2esConfig.getLonColumn())) {
-                        location.put("lon", row.get(i));
-                    } else if (row.get(i) != null && !row.get(i).equals("")) { //去除空数据，节省es搜索空间
-                        if (tableNode.getDataType().get(i).equals("DATE")) {
+                    if (row.get(i) != null && !row.get(i).equals("")) { //去除空数据，节省es搜索空间
+                        if (tableNode.getColumns().get(i).equals(db2esConfig.getLatColumn())) {
+                            location.put("lat", row.get(i));
+                            lat= row.get(i);
+                        } else if (tableNode.getColumns().get(i).equals(db2esConfig.getLonColumn())) {
+                            location.put("lon", row.get(i));
+                            lon= row.get(i);
+                        } else if (tableNode.getDataType().get(i).equals("DATE")) {
                             DateFormat df = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
                             Date date = null;
                             try {
@@ -497,10 +511,20 @@ public class ESOperateImpl implements ESOperate {
                 }
                 map.put("location", location);
                 try {
-                    json += objectMapper.writeValueAsString(map) + "\n";
+                    //经纬度同时存在时，才导入
+                    if (isValidGeo(lat, lon)) {
+                        json = "";
+                        /*构建head头*/
+                        json += "{ \"index\":{ \"_index\": \"" + indexName(dbName, tableNode.getTableName()) + "\", \"_type\": \"" + db2esConfig.getIndexType() + "\", \"_id\": \"" + row.get(0) + "\"}}\n";
+                        /*构建body*/
+                        json += objectMapper.writeValueAsString(map) + "\n";
+                        return true;
+                    }
                 } catch (JsonProcessingException e) {
                     logger.error("To json error when generator bulk body!\n", e);
+                    return false;
                 }
+                return false;
             }
 
         }
@@ -511,7 +535,7 @@ public class ESOperateImpl implements ESOperate {
                 executor.execute(new Table2esBulk(db.getDbName(), tb));
                 /*如果当前线程数达到最大值，则阻塞等待*/
                 while (executor.getQueue().size() >= executor.getMaximumPoolSize()) {
-                    logger.debug("Already maxThread. Now Thread nubmer:" + executor.getActiveCount());
+                    logger.debug("Already maxThread. Now Thread number:" + executor.getActiveCount());
                     long time = 200;
                     try {
                         Thread.sleep(time);
@@ -544,6 +568,27 @@ public class ESOperateImpl implements ESOperate {
         });
     }
 
+
+    /**
+     * 判断经纬度字段是否有效
+     * @param lat_str
+     * @param lon_str
+     * @return
+     */
+    public boolean isValidGeo(String lat_str, String lon_str){
+        if (lat_str == null || lon_str == null || "".equals(lat_str) || "".equals(lon_str))return false;
+        try {
+            Double lat = Double.parseDouble(lat_str);
+            Double lon = Double.parseDouble(lon_str);
+            if (-90 <= lat && lat <= 90 && -180<=lon && lon <= 180){
+                return true;
+            }
+        }catch (Exception e){
+            logger.error("IsValidGeo error! lat="+lat_str+", lon="+lon_str+"\n",e);
+            return false;
+        }
+        return false;
+    }
 }
 
 

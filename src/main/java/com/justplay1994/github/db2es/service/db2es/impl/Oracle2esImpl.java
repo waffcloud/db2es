@@ -50,6 +50,8 @@ public class Oracle2esImpl implements Oracle2es {
 
         oracleOperate.queryAllStructure();// 查询所有数据结构，阻塞
 
+        oracleOperate.deleteTableWithoutGeo(); //删除没有经度和纬度字段的表
+
         esOperate.deleteAllConflict();//删除冲突索引
         esOperate.createMapping();// 创建索引映射，阻塞
 
@@ -84,7 +86,7 @@ public class Oracle2esImpl implements Oracle2es {
         logger.info("\n\n============ Oracle2es finished! ==================start");
         logger.info("*  total dbNumber:   " + DatabaseNodeListInfo.dbNumber);
         logger.info("*  total tbNumber:   " + DatabaseNodeListInfo.tbNumber);
-        logger.info("*  total rowNumber:  " + DatabaseNodeListInfo.rowNumber);
+        logger.info("*  total totalRowNumber:  " + DatabaseNodeListInfo.totalRowNumber);
         logger.info("*  total failNumber: " + DatabaseNodeListInfo.failCount);
         logger.info("*  total Time: " + m + "m" + s + "s");
         logger.info("\n============ Oracle2es finished! ==================end\n\n");
