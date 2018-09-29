@@ -102,7 +102,8 @@ public class Oracle2esImpl implements Oracle2es {
         "*  total totalRowNumber:  " + DatabaseNodeListInfo.totalRowNumber+"\n"+
         "*  total failNumber: " + DatabaseNodeListInfo.failCount+"\n"+
         "*  total Time: " + m + "m" + s + "s"+"\n"+
-        "\n============ Oracle2es finished! ==================end\n\n";
+        "============ Oracle2es finished! ==================end\n\n";
+        logger.info(result);
         return result;
     }
 }
