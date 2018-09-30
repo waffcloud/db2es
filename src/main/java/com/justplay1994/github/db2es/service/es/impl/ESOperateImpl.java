@@ -132,7 +132,8 @@ public class ESOperateImpl implements ESOperate {
                 textType.put("type", "text");
 
                 for (int i = 0; i < tableNode.getColumns().size(); ++i) {
-                    if (tableNode.getDataType().get(i).equalsIgnoreCase("NVARCHAR2")) {
+                    if (tableNode.getDataType().get(i).equalsIgnoreCase("NVARCHAR2")
+                            || tableNode.getDataType().get(i).equalsIgnoreCase("VARCHAR2")) {
                         properties.put(tableNode.getColumns().get(i), textAnalyzer);
                     } else if (tableNode.getDataType().get(i).equalsIgnoreCase("DATE")) {
                         properties.put(tableNode.getColumns().get(i), dateTime);

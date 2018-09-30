@@ -59,7 +59,7 @@ public class OracleOperateImpl implements OracleOperate {
             logger.info("Connect oracle success.");
             st = con.createStatement();
             /*获取库名、表名*/
-            String sql = "SELECT DISTINCT TABLE_NAME, OWNER FROM all_tab_columns WHERE OWNER='" + oracle2esConfig.getOwner().toUpperCase() + "'";
+            String sql = "SELECT DISTINCT TABLE_NAME, OWNER FROM all_tab_columns WHERE OWNER='"   + oracle2esConfig.getOwner().toUpperCase() + "'";
             logger.debug("[sql: " + sql + " ]");
             rs = st.executeQuery(sql);
 
@@ -69,7 +69,6 @@ public class OracleOperateImpl implements OracleOperate {
             while (rs.next()) {
                 String tbStr = rs.getString("TABLE_NAME");
                 String dbStr = rs.getString("OWNER");
-
 
                 boolean skip = false;
                 /*判断该库是否是必须读取*/
