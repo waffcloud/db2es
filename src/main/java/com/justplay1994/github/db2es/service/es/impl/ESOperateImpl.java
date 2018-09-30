@@ -73,19 +73,22 @@ public class ESOperateImpl implements ESOperate {
             public void run() {
                 logger.info("creating mapping...");
                 /*创建索引映射*/
-
+                String result="";
                 try {
-                    new MyURLConnection().request(ESUrl + indexName, "PUT", mapping);
+                    result = new MyURLConnection().request(ESUrl + indexName, "PUT", mapping);
                     logger.info("mapping finished! indexName: " + indexName);
                 } catch (MalformedURLException e) {
-                    logger.error("【MappingError】", e);
-                    logger.error("url: " + ESUrl + indexName + "\n " + mapping);
+                    logger.error("【MappingError1】", e);
+                    logger.error("url: " + ESUrl + indexName + "\n " + mapping, e);
+                    logger.error(result);
                 } catch (ProtocolException e) {
-                    logger.error("【MappingError】", e);
-                    logger.error("url: " + ESUrl + indexName + "\n " + mapping);
+                    logger.error("【MappingError2】", e);
+                    logger.error("url: " + ESUrl + indexName + "\n " + mapping, e);
+                    logger.error(result);
                 } catch (IOException e) {
-                    logger.error("【MappingError】", e);
-                    logger.error("url: " + ESUrl + indexName + "\n " + mapping);
+                    logger.error("【MappingError3】", e);
+                    logger.error("url: " + ESUrl + indexName + "\n " + mapping, e);
+                    logger.error(result);
                 }
             }
         }
@@ -466,7 +469,7 @@ public class ESOperateImpl implements ESOperate {
                                 //如果改行数据错误，则已完成数据行数+1，失败行数+1
                                 DatabaseNodeListInfo.isFinishedCount++;
                                 DatabaseNodeListInfo.failCount++;
-                                logger.error("Row data error, lat or lon is null! [ dbName=" + dbName + ", tbName=" + tableNode.getTableName() + ",ROWID="+row.get(0)+"]\n");
+                                logger.debug("Row data error, lat or lon is null! [ dbName=" + dbName + ", tbName=" + tableNode.getTableName() + ",ROWID="+row.get(0)+"]\n");
                             }
                         } catch (InterruptedException e) {
                             logger.error("Offer bulk queue error! [ dbName=" + dbName + ", tbName=" + tableNode.getTableName() + "\n", e);

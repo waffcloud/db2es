@@ -22,4 +22,14 @@ public class DatabaseNodeListInfo {
 
     public static int isFinishedCount = 0; //已完成的行数
     public static int failCount = 0;      //失败的行数
+
+    public static void clean(){
+        databaseNodeList = null;
+        dbNumber=0;/*数据库总数量*/
+        tbNumber = 0;/*表总数量*/
+        totalRowNumber=0;/*已导入数据行数*/
+        queryRowNumber=0;/*已导入数据行数*/
+        isFinishedCount = 0; //已完成的行数
+        failCount = 0;      //失败的行数
+    }
 }

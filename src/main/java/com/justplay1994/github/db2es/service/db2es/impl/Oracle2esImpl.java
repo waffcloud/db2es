@@ -48,6 +48,7 @@ public class Oracle2esImpl implements Oracle2es {
     public String transfer() {
         long startTime = System.currentTimeMillis();
 
+        DatabaseNodeListInfo.clean();
         oracleOperate.queryAllStructure();// 查询所有数据结构，阻塞
 
         oracleOperate.deleteTableWithoutGeo(); //删除没有经度和纬度字段的表
