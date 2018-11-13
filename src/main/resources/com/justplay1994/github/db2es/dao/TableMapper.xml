@@ -1,0 +1,14 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.justplay1994.github.db2es.dao.TableMapper">
+
+    <select id="queryTable" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+        SELECT
+        <foreach collection="map.cols" item="item" separator=",">
+            ${item}
+        </foreach>
+        FROM ${map.tbName}
+    </select>
+</mapper>

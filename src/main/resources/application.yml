@@ -76,13 +76,10 @@ spring:
     basename: i18n/messages
     cache-seconds: -1
     encoding: utf-8
-  primary-datasource:
+  datasource:
     type: com.zaxxer.hikari.HikariDataSource
     driverClassName: oracle.jdbc.driver.OracleDriver
-   # url: jdbc:oracle:thin:@${myProps.PrimaryDatasourceIp}:1521/coreora    #区委
-    jdbc-url: jdbc:oracle:thin:@10.192.19.104:1521/orclcetc   #王延凯
-  #  url: jdbc:oracle:thin:@10.192.19.107:1521/coreora   # 林海全本地测试库
-  #  url: jdbc:oracle:thin:@${myProps.PrimaryDatasourceIp}:1521/orcl   #北京
+    url: jdbc:oracle:thin:@10.192.19.163:1521/orcl
     username: ZHFTYJJCPT
     password: ToKreDi*nJ
     hikari:

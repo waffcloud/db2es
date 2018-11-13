@@ -1,5 +1,6 @@
 package com.justplay1994.github.db2es;
 
+import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.web.support.SpringBootServletInitializer;
@@ -26,6 +27,9 @@ import javax.servlet.ServletException;
 @Component
 @EnableScheduling
 @EnableCaching
+@MapperScan({
+        "com.justplay1994.github.db2es.dao"
+})
 public class Application extends SpringBootServletInitializer {
     @Override
     protected SpringApplicationBuilder configure(SpringApplicationBuilder application)

@@ -4,10 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.justplay1994.github.db2es.client.urlConnection.MyURLConnection;
 import com.justplay1994.github.db2es.config.Db2esConfig;
+import com.justplay1994.github.db2es.dao.TableMapper;
 import com.justplay1994.github.db2es.service.db.current.DatabaseNode;
 import com.justplay1994.github.db2es.service.db.current.DatabaseNodeListInfo;
 import com.justplay1994.github.db2es.service.db.current.TableNode;
 import com.justplay1994.github.db2es.service.es.ESOperate;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,8 +55,39 @@ public class ESOperateImpl implements ESOperate {
 
     static ObjectMapper objectMapper = new ObjectMapper();
 
+    @Autowired
+    TableMapper tableMapper;
+
+    List<HashMap> nameAndAddressList;
+
+    private String colAlias(String tbName, String col, List<HashMap> list){
+        for (HashMap map: list){
+            String tbNameC = (String) map.get("TABLE_NAME");
+            String nameCol = (String) map.get("NAME");
+            String addressCol = (String) map.get("ADDRESS");
+            if (tbNameC.equalsIgnoreCase(tbName)) {
+                if ((!StringUtils.isEmpty(nameCol)) && nameCol.equalsIgnoreCase(col)) {
+                    return "NAME";
+                }
+                if ((!StringUtils.isEmpty(addressCol)) && addressCol.equalsIgnoreCase(col))
+                    return "ADDRESS";
+            }
+        }
+        return col;
+    }
+
     @Override
     public void createMapping() {
+        //查询映射表：每张表那个字段是name，那个字段是address
+        HashMap map = new HashMap();
+        map.put("tbName", "CONTENT_RELATION_MAP");
+        List<String> cols = new ArrayList<String>();
+        cols.add("TABLE_NAME");
+        cols.add("NAME");
+        cols.add("ADDRESS");
+        map.put("cols", cols);
+        nameAndAddressList = tableMapper.queryTable(map);
+
         /**
          * 创建mapping的线程实例
          */
@@ -135,13 +168,15 @@ public class ESOperateImpl implements ESOperate {
                 textType.put("type", "text");
 
                 for (int i = 0; i < tableNode.getColumns().size(); ++i) {
+                    String col = tableNode.getColumns().get(i);
+                    String colA = colAlias(tableNode.getTableName(), col, nameAndAddressList);
                     if (tableNode.getDataType().get(i).equalsIgnoreCase("NVARCHAR2")
                             || tableNode.getDataType().get(i).equalsIgnoreCase("VARCHAR2")) {
-                        properties.put(tableNode.getColumns().get(i), textAnalyzer);
+                        properties.put(colA, textAnalyzer);
                     } else if (tableNode.getDataType().get(i).equalsIgnoreCase("DATE")) {
-                        properties.put(tableNode.getColumns().get(i), dateTime);
+                        properties.put(colA, dateTime);
                     } else {
-                        properties.put(tableNode.getColumns().get(i), textType);
+                        properties.put(colA, textType);
                     }
                 }
                 try {
@@ -494,10 +529,12 @@ public class ESOperateImpl implements ESOperate {
                 String lon="";
                 for (int i = 0; i < tableNode.getColumns().size(); ++i) {
                     if (row.get(i) != null && !row.get(i).equals("")) { //去除空数据，节省es搜索空间
-                        if (tableNode.getColumns().get(i).equals(db2esConfig.getLatColumn())) {
+                        String col = tableNode.getColumns().get(i);
+                        String colA = colAlias(tableNode.getTableName(), col, nameAndAddressList);
+                        if (col.equals(db2esConfig.getLatColumn())) {
                             location.put("lat", row.get(i));
                             lat= row.get(i);
-                        } else if (tableNode.getColumns().get(i).equals(db2esConfig.getLonColumn())) {
+                        } else if (col.equals(db2esConfig.getLonColumn())) {
                             location.put("lon", row.get(i));
                             lon= row.get(i);
                         } else if (tableNode.getDataType().get(i).equals("DATE")) {
@@ -508,9 +545,9 @@ public class ESOperateImpl implements ESOperate {
                             } catch (ParseException e) {
                                 logger.error("Date format error!\n", e);
                             }
-                            map.put(tableNode.getColumns().get(i), date);
+                            map.put(col, date);
                         } else {
-                            map.put(tableNode.getColumns().get(i), row.get(i));
+                            map.put(colA, row.get(i));
                         }
                     }
                 }
