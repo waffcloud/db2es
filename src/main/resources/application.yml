@@ -38,7 +38,7 @@ oracle2es.justReadDB:
 #只读的表的列表，为空则读所有表。eg: dbName.tbName
 #oracle2es.justReadTB: ZHFTYJJCPT.TB_ROAD_DISEASE,ZHFTYJJCPT.HEDAO_001
 #oracle2es.justReadTB: ZHFTYJJCPT.TB_SANXIAO_PLACE,ZHFTYJJCPT.BJ0102,ZHFTYJJCPT.BJ0103,ZHFTYJJCPT.BJ0118,ZHFTYJJCPT.BJ0121,ZHFTYJJCPT.BJ0132,ZHFTYJJCPT.BJ0133,ZHFTYJJCPT.BJ0135,ZHFTYJJCPT.BJ0138,ZHFTYJJCPT.BJ0201,ZHFTYJJCPT.BJ0203,ZHFTYJJCPT.BJ0217,ZHFTYJJCPT.BJ0301,ZHFTYJJCPT.BJ0310,ZHFTYJJCPT.BJ0502,ZHFTYJJCPT.BJ0601,ZHFTYJJCPT.BJ0602,ZHFTYJJCPT.BJ2114,ZHFTYJJCPT.BJ2118,ZHFTYJJCPT.BJ2124,ZHFTYJJCPT.VIDEO_POLICE,ZHFTYJJCPT.EMERGENCY_RESCUE_TEAM,ZHFTYJJCPT.EMERGENCY_HARZARD,ZHFTYJJCPT.EMERGENCY_WAREHOUSE,ZHFTYJJCPT.FUTIAN_PENSION_CENTER,ZHFTYJJCPT.EMERGENCY_SHELTER,ZHFTYJJCPT.TB_XUNCHASHIJIAN,ZHFTYJJCPT.RANQIZHAN_001,ZHFTYJJCPT.TB_XIAOHUOSHUAN_002
-oracle2es.justReadTB:
+oracle2es.justReadTB: ZHFTYJJCPT.BJ2118
 #需要跳过的库的列表，为空则不跳过。eg: dbName
 oracle2es.skipReadDB:
 #需要跳过的表的列表，为空则不跳过。eg: dbName.tbName
@@ -78,8 +78,9 @@ spring:
     encoding: utf-8
   datasource:
     type: com.zaxxer.hikari.HikariDataSource
-    driverClassName: oracle.jdbc.driver.OracleDriver
+    driverClassName: oracle.jdbc.OracleDriver
     url: jdbc:oracle:thin:@10.192.19.163:1521/orcl
+#    url: jdbc:oracle:thin:@10.190.55.65:9205/orcl
     username: ZHFTYJJCPT
     password: ToKreDi*nJ
     hikari:
@@ -96,47 +97,7 @@ spring:
       validation-query-timeout: 5000
       max-lifetime: 5
       test-while-idle: true
-#  primary-datasource:
-#    type: com.zaxxer.hikari.HikariDataSource
-#    driverClassName: com.mysql.jdbc.Driver
-#    url: jdbc:mysql://${myProps.PrimaryDatasourceIp}:3306/31project_april?useSSL=false&useUnicode=true&characterEncoding=utf-8
-#    username: ${myProps.PrimaryDatasourceUsername}
-#    password: ${myProps.PrimaryDatasourcePassword}
-#    hikari:
-#      connection-test-query: SELECT 1 FROM DUAL
-#      minimum-idle: 3
-#      maximum-pool-size: 24
-#      pool-name: ${spring.application.name}-CP
-#      idle-timeout: 10000
-#      cachePrepStmts: true
-#      prepStmtCacheSize: 250
-#      prepStmtCacheSqlLimit: 2048
-#      leakDetectionThreshold: 2000
-#      validation-interval: 5000
-#      validation-query-timeout: 5000
-#      max-lifetime: 5
-#      test-while-idle: true
-#  primary-datasource:
-#    type: com.zaxxer.hikari.HikariDataSource
-#    driverClassName: com.mysql.jdbc.Driver
-#    url: jdbc:mysql://${myProps.primary-datasource.ip}:3306/31project_april?useSSL=false&useUnicode=true&characterEncoding=utf-8
-#    username: root
-#    password: 123456
-#    remove-abandoned: true
-#    hikari:
-#      connection-test-query: SELECT 1 FROM DUAL
-#      minimum-idle: 3
-#      maximum-pool-size: 24
-#      pool-name: ${spring.application.name}-CP
-#      idle-timeout: 10000
-#      cachePrepStmts: true
-#      prepStmtCacheSize: 250
-#      prepStmtCacheSqlLimit: 2048
-#      leakDetectionThreshold: 2000
-#      validation-interval: 5000
-#      validation-query-timeout: 5000
-#      max-lifetime: 5
-#      test-while-idle: true
+
 #初始化连接
 spring.primary-datasource.initial-size: 10
 #最大空闲连接
