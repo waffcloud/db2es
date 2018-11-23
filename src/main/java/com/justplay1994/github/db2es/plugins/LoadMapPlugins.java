@@ -2,6 +2,7 @@ package com.justplay1994.github.db2es.plugins;
 
 import com.justplay1994.github.db2es.config.LoadMap;
 import com.justplay1994.github.db2es.config.Oracle2esConfig;
+import com.justplay1994.github.db2es.config.PluginsConfig;
 import com.justplay1994.github.db2es.service.db2es.Oracle2es;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
@@ -34,6 +35,9 @@ public class LoadMapPlugins {
     @Autowired
     LoadMap loadMap;
 
+    @Autowired
+    PluginsConfig pluginsConfig;
+
     @Pointcut(value = "execution(* com.justplay1994.github.db2es.service.db.operate.impl.OracleOperateImpl.queryAllStructure())")
     public void cut(){
 
@@ -41,15 +45,17 @@ public class LoadMapPlugins {
 
     @Before("cut()")
     public void before(){
-        StringBuilder result = new StringBuilder();
-        for (Object key: loadMap.keySet()){
-            String str = String.valueOf(key).split("@")[0];
-            String tbName = str.split("\\.")[1];
-            if (isStartWithNumber(tbName))continue;
-            result.append(oracle2esConfig.getOwner()+"."+tbName+",");
+        if (pluginsConfig.isLoadMap()) {
+            StringBuilder result = new StringBuilder();
+            for (Object key : loadMap.keySet()) {
+                String str = String.valueOf(key).split("@")[0];
+                String tbName = str.split("\\.")[1];
+                if (isStartWithNumber(tbName)) continue;
+                result.append(oracle2esConfig.getOwner() + "." + tbName + ",");
+            }
+            result.delete(result.length() - 1, result.length());
+            oracle2esConfig.setJustReadTB(String.valueOf(result));
         }
-        result.delete(result.length()-1, result.length());
-        oracle2esConfig.setJustReadTB(String.valueOf(result));
     }
 
     private boolean isStartWithNumber(String string){

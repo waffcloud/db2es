@@ -2,7 +2,7 @@ package com.justplay1994.github.db2es.service.es.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.justplay1994.github.db2es.client.urlConnection.MyURLConnection;
+import com.justplay1994.github.db2es.client.HttpClientUtil;
 import com.justplay1994.github.db2es.config.Db2esConfig;
 import com.justplay1994.github.db2es.dao.TableMapper;
 import com.justplay1994.github.db2es.service.db.current.DatabaseNode;
@@ -21,6 +21,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.ProtocolException;
+import java.net.URISyntaxException;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.ParseException;
@@ -60,6 +61,13 @@ public class ESOperateImpl implements ESOperate {
 
     List<HashMap> nameAndAddressList;
 
+    /**
+     * 给字段起别名
+     * @param tbName
+     * @param col
+     * @param list
+     * @return
+     */
     private String colAlias(String tbName, String col, List<HashMap> list){
         for (HashMap map: list){
             String tbNameC = (String) map.get("TABLE_NAME");
@@ -108,7 +116,8 @@ public class ESOperateImpl implements ESOperate {
                 /*创建索引映射*/
                 String result="";
                 try {
-                    result = new MyURLConnection().request(ESUrl + indexName, "PUT", mapping);
+//                    result = new MyURLConnection().request(ESUrl + indexName, "PUT", mapping);
+                    result = HttpClientUtil.request(ESUrl + indexName, "PUT", mapping);
                     logger.info("mapping finished! indexName: " + indexName);
                 } catch (MalformedURLException e) {
                     logger.error("【MappingError1】", e);
@@ -247,7 +256,8 @@ public class ESOperateImpl implements ESOperate {
 
                 try {
 
-                    result = new MyURLConnection().request(url, type, json);
+//                    result = new MyURLConnection().request(url, type, json);
+                    result = HttpClientUtil.request(url, type, json);
 
                     logger.debug(getRequestFullData());
 
@@ -426,7 +436,8 @@ public class ESOperateImpl implements ESOperate {
                     /*逐个删除*/
                     url = indexName(databaseNode.getDbName(), tableNode.getTableName());
                     try {
-                        new MyURLConnection().request(db2esConfig.getEsUrl() + url, "DELETE", "");
+//                        new MyURLConnection().request(db2esConfig.getEsUrl() + url, "DELETE", "");
+                        HttpClientUtil.request(db2esConfig.getEsUrl() + url, "DELETE", "");
                         logger.info("delete success: " + url);
                     } catch (MalformedURLException e) {
                         logger.error("delete index error: " + url, e);
@@ -501,10 +512,10 @@ public class ESOperateImpl implements ESOperate {
                             if (bulkGeneratorByRow(row))
                                 tableNode.getEsBulks().offer(json.toString(), db2esConfig.getQueueWaitTime(), TimeUnit.MILLISECONDS);//入队一个bulk
                             else {
-                                //如果改行数据错误，则已完成数据行数+1，失败行数+1
+                                //如果该行数据错误，则已完成数据行数+1，失败行数+1
                                 DatabaseNodeListInfo.isFinishedCount++;
                                 DatabaseNodeListInfo.failCount++;
-                                logger.debug("Row data error, lat or lon is null! [ dbName=" + dbName + ", tbName=" + tableNode.getTableName() + ",ROWID="+row.get(0)+"]\n");
+                                logger.error("Row data error, lat or lon is null! [ dbName=" + dbName + ", tbName=" + tableNode.getTableName() + ",ROWID="+row.get(0)+"]\n");
                             }
                         } catch (InterruptedException e) {
                             logger.error("Offer bulk queue error! [ dbName=" + dbName + ", tbName=" + tableNode.getTableName() + "\n", e);
