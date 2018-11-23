@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.justplay1994.github.db2es.client.HttpClientUtil;
 import com.justplay1994.github.db2es.config.Db2esConfig;
+import com.justplay1994.github.db2es.config.MyLogConfig;
 import com.justplay1994.github.db2es.dao.TableMapper;
 import com.justplay1994.github.db2es.service.db.current.DatabaseNode;
 import com.justplay1994.github.db2es.service.db.current.DatabaseNodeListInfo;
@@ -58,6 +59,9 @@ public class ESOperateImpl implements ESOperate {
 
     @Autowired
     TableMapper tableMapper;
+
+    @Autowired
+    MyLogConfig myLogConfig;
 
     List<HashMap> nameAndAddressList;
 
@@ -515,7 +519,8 @@ public class ESOperateImpl implements ESOperate {
                                 //如果该行数据错误，则已完成数据行数+1，失败行数+1
                                 DatabaseNodeListInfo.isFinishedCount++;
                                 DatabaseNodeListInfo.failCount++;
-                                logger.error("Row data error, lat or lon is null! [ dbName=" + dbName + ", tbName=" + tableNode.getTableName() + ",ROWID="+row.get(0)+"]\n");
+                                if (myLogConfig.isLocation())
+                                    logger.error("Row data error, lat or lon is null! [ dbName=" + dbName + ", tbName=" + tableNode.getTableName() + ",ROWID="+row.get(0)+"]\n");
                             }
                         } catch (InterruptedException e) {
                             logger.error("Offer bulk queue error! [ dbName=" + dbName + ", tbName=" + tableNode.getTableName() + "\n", e);
