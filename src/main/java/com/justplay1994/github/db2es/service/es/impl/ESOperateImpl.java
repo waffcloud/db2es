@@ -77,12 +77,15 @@ public class ESOperateImpl implements ESOperate {
             String tbNameC = (String) map.get("TABLE_NAME");
             String nameCol = (String) map.get("NAME");
             String addressCol = (String) map.get("ADDRESS");
+            String loadMapTagLv2 = (String) map.get("LOAD_MAP_TAG_LV2");
             if (tbNameC.equalsIgnoreCase(tbName)) {
                 if ((!StringUtils.isEmpty(nameCol)) && nameCol.equalsIgnoreCase(col)) {
                     return "NAME";
                 }
                 if ((!StringUtils.isEmpty(addressCol)) && addressCol.equalsIgnoreCase(col))
                     return "ADDRESS";
+                if ((!StringUtils.isEmpty(loadMapTagLv2)) && loadMapTagLv2.equalsIgnoreCase(col))
+                    return "LOAD_MAP_TAG_LV2";
             }
         }
         return col;
@@ -97,6 +100,7 @@ public class ESOperateImpl implements ESOperate {
         cols.add("TABLE_NAME");
         cols.add("NAME");
         cols.add("ADDRESS");
+        cols.add("LOAD_MAP_TAG_LV2");
         map.put("cols", cols);
         nameAndAddressList = tableMapper.queryTable(map);
 
