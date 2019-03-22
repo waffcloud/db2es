@@ -6,7 +6,7 @@
 db2es.latColumn: WD84
 db2es.lonColumn: JD84
 
-db2es.esUrl: http://10.192.19.161:9200/
+db2es.esUrl: http://127.0.0.1:9200/
 db2es.maxThreadCount: 8
 db2es.indexType: _doc
 db2es.indexDB:
@@ -44,7 +44,7 @@ mylog.location: false
 
 # 由于oracle受限情况下，不能使用all_tables查询tablespace，所以查询不到tablespace，只能讲tablespace用owner替代了
 # owner不能为空
-oracle2es.owner: ZHFTYJJCPT
+oracle2es.owner: LEADAPP
 # tableSpace应该就是DB 重复了
 oracle2es.tableSpace:
 #只读的数据库列表，为空则读全库.eg: dbName
@@ -68,8 +68,8 @@ server:
 spring:
   profiles:
     active: dev
-  zipkin:
-    base-url: http://10.192.19.162:18100
+#  zipkin:
+#    base-url: http://10.192.19.162:18100
   service:
     name: ${spring.application.name}
   sleuth:
@@ -93,10 +93,10 @@ spring:
   datasource:
     type: com.zaxxer.hikari.HikariDataSource
     driverClassName: oracle.jdbc.OracleDriver
-    url: jdbc:oracle:thin:@10.192.19.163:1521/orcl
+    url: jdbc:oracle:thin:@127.0.0.1:1521/orcl
 #    url: jdbc:oracle:thin:@10.190.55.65:9205/orcl
-    username: ZHFTYJJCPT
-    password: ToKreDi*nJ
+    username: LEADAPP
+    password: Password123
     hikari:
       connection-test-query: SELECT 1 FROM DUAL
       minimum-idle: 3
